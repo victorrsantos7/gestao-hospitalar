@@ -12,7 +12,7 @@ papel.
 
 ## What Changes
 
-- Adicionar uma página de login (`/login`) como ponto de entrada da
+- Adicionar uma página de login (`/`) como ponto de entrada da
   aplicação, substituindo a página padrão de boas-vindas gerada pelo
   `reflex init`.
 - Criar um modelo de usuário do sistema (funcionário do hospital) com
@@ -39,10 +39,16 @@ papel.
 
 ## Impact
 
+- Nova dependência `bcrypt` em `requirements.txt` para hash de senha.
 - Novo modelo `Usuario` (`rx.Model`) e migração de banco correspondente.
-- Novo `AuthState` (`rx.State`) responsável pela lógica de autenticação.
+- Novo `AuthState` (`rx.State`) responsável pela lógica de autenticação,
+  guardando apenas `usuario_id` e `papel` do usuário autenticado.
 - Nova página `login.py` em `gestao_hospitalar/`, substituindo a página
   `index` padrão do template em branco do Reflex.
+- Nova página `dashboard.py` (placeholder) como destino pós-login e exemplo
+  de página interna protegida.
+- Novo script `seed.py` para criação manual do usuário administrador
+  inicial (login/senha fixos de desenvolvimento).
 - `docs/domain-model.md` ainda não possui a entidade "Usuário do sistema"
   (login/papel de acesso) — precisa ser complementado nesta change, pois é
   um conceito de domínio novo, distinto de Paciente/Médico/Convênio.

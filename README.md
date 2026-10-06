@@ -26,6 +26,22 @@ reflex run
 
 A aplicação fica disponível em `http://localhost:3000` (backend em `:8000`).
 
+### Banco de dados e usuário administrador
+
+```bash
+reflex db init      # primeira vez apenas
+reflex db migrate
+python -m gestao_hospitalar.seed
+```
+
+O seed cria um usuário administrador de desenvolvimento:
+
+- login: `admin`
+- senha: `admin`
+
+Essas credenciais são fixas e servem apenas para ambiente local — não usar em
+produção.
+
 ## Desenvolvimento
 
 Mudanças são conduzidas via OpenSpec, seguindo o ciclo Explore → Propose →

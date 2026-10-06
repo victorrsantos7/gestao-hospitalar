@@ -27,15 +27,29 @@ sessão implementados — esta é a primeira capability do projeto.
   em um `AuthState` no backend Reflex, evitando dependências externas de
   sessão. Alternativa considerada: serviço de sessão externo — descartada
   por adicionar complexidade desnecessária nesta fase.
-- **Senha com hash**: senhas são armazenadas com hash (`passlib`/`bcrypt`),
-  nunca em texto aberto, conforme a regra de Security do
-  `openspec/config.yaml`.
+- **Senha com hash**: senhas são armazenadas com hash via `bcrypt` (biblioteca
+  direta, sem `passlib`), nunca em texto aberto, conforme a regra de Security
+  do `openspec/config.yaml`. Adicionar `bcrypt` a `requirements.txt`.
 - **Novo `rx.Model` `Usuario`**: campos `id`, `login` (único), `senha_hash`,
   `papel`. Alternativa considerada: reaproveitar algum modelo existente —
   descartada porque não há nenhum modelo de usuário no domínio atual.
+- **Usuário administrador inicial**: seed com login/senha fixos de
+  desenvolvimento (documentados no README como uso local apenas), executado
+  manualmente via script Python separado (`python -m gestao_hospitalar.seed`),
+  não automaticamente a cada `reflex run`.
+- **Sessão no `AuthState`**: guarda apenas `usuario_id` e `papel` do usuário
+  autenticado (não o objeto `Usuario` completo). Computed var
+  `is_authenticated` verifica se `usuario_id` está preenchido.
 - **Rota de login como raiz**: a página de login substitui o `index`
-  padrão gerado pelo `reflex init` na rota `/`. Páginas internas verificam
-  `AuthState.is_authenticated` e redirecionam para `/login` quando falso.
+  padrão gerado pelo `reflex init` na rota `/`. Páginas internas usam
+  `on_load` apontando para uma verificação de autenticação que redireciona
+  para `/` (a própria rota de login) quando `AuthState.is_authenticated`
+  é falso.
+- **Página inicial pós-login**: criar `/dashboard` como placeholder (mensagem
+  de boas-vindas, nome do usuário autenticado e botão de logout), servindo de
+  base para páginas internas futuras.
+- **Migração**: `reflex db makemigrations -m "add usuario"` seguido de
+  `reflex db migrate`, separado da execução do seed do admin.
 
 ## Risks / Trade-offs
 
@@ -51,3 +65,5 @@ sessão implementados — esta é a primeira capability do projeto.
   enfermagem/gestão) não são definidas nesta change — apenas o campo
   `papel` é armazenado. A autorização por papel fica para uma change
   futura e não altera o escopo, a abordagem ou as tasks desta change.
+- Nenhuma pendência restante quanto a hash, seed, sessão, página pós-login
+  ou migração — decisões registradas acima.

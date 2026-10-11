@@ -77,8 +77,9 @@ consultas, integração com sistemas externos e emissão de documentos legais.
 - **Stack**: Reflex (Python full-stack) — frontend e backend implementados
   na mesma base de código Python, sem tecnologias adicionais de frontend
   (nada de HTML/JS/templates separados).
-- **Persistência**: modelos Reflex (`rx.Model`) sobre banco relacional —
-  SQLite em desenvolvimento, com possibilidade de migração para MySQL.
+- **Persistência**: Xano como backend remoto para os fluxos migrados,
+  consumido por um adaptador HTTP no backend Reflex. O SQLite permanece
+  configurado somente para modelos e fluxos locais ainda não migrados.
 - **Padrão**: organização por `State` (`rx.State`) e `Components` do
   Reflex, substituindo o padrão MVC tradicional.
 
@@ -111,3 +112,11 @@ médicos, convênios, atendimentos, internações e transferências.
 - `openspec/config.yaml` — contexto e regras dos workflows.
 - `openspec/specs/` — comportamento consolidado do sistema.
 - `openspec/changes/` — mudanças em andamento e histórico.
+
+## 13. Integração Xano
+
+O login e o cadastro de pacientes usam o grupo de API protegido do Xano. A
+autenticação remota devolve apenas o identificador, o papel e o token da
+sessão; a senha permanece sob responsabilidade do recurso de autenticação do
+Xano. O cliente HTTP não faz fallback silencioso para o SQLite e não repete
+automaticamente escritas cujo resultado seja desconhecido.

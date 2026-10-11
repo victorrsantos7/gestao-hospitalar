@@ -26,21 +26,61 @@ reflex run
 
 A aplicação fica disponível em `http://localhost:3000` (backend em `:8000`).
 
-### Banco de dados e usuário administrador
+### Configuração do Xano
 
-```bash
-reflex db init      # primeira vez apenas
-reflex db migrate
-python -m gestao_hospitalar.seed
+Use `.env.example` como referência e configure as variáveis no ambiente antes
+de iniciar a aplicação. O `iniciar_reflex.bat` já define a URL pública de
+desenvolvimento por padrão. A URL atual do grupo de API hospitalar é:
+
+```text
+https://x8ki-letl-twmt.n7.xano.io/api:3lVm5Wbj
 ```
 
-O seed cria um usuário administrador de desenvolvimento:
+Variáveis utilizadas:
 
-- login: `admin`
-- senha: `admin`
+- `XANO_API_URL` — obrigatória.
+- `XANO_API_TOKEN` — opcional, somente para grupos protegidos.
+- `XANO_TIMEOUT_SECONDS` — opcional; padrão de 10 segundos.
 
-Essas credenciais são fixas e servem apenas para ambiente local — não usar em
-produção.
+### Logs de comunicação
+
+O backend registra a comunicação entre eventos Reflex e o Xano em
+`logs/gestao_hospitalar.log`. O log inclui evento, método, rota, status, duração
+e quantidade de registros retornados, mas não grava senha, token ou payload de
+pacientes. A BAT define `GESTAO_LOG_FILE` e `GESTAO_LOG_LEVEL`; para aumentar o
+detalhamento, use `GESTAO_LOG_LEVEL=DEBUG` antes de iniciar.
+
+O login usa o endpoint `POST /auth/login` do Xano e a tabela
+`usuarios_hospital`. Crie usuários de teste diretamente no Xano; senhas não
+devem ser armazenadas no repositório.
+
+### Autorização por papel
+
+As permissões são fixas no backend e negadas por padrão:
+
+- `recepcionista`: pacientes, médicos, convênios e atendimentos.
+- `medico`: pacientes, atendimentos e diagnósticos.
+- `enfermagem_gestao`: internações, leitos, transferências e histórico.
+- `admin`: todas as funcionalidades e gerenciamento de usuários.
+
+Toda nova funcionalidade deve declarar seu recurso e validar o papel no
+backend; ocultar um item da interface não substitui essa validação.
+
+### Cadastro de pacientes
+
+A rota `/pacientes` permite que recepcionista e admin cadastrem pacientes, e
+que recepcionista, médico e admin consultem pacientes. O cadastro valida CPF
+antes de enviar os dados ao Xano; a listagem resumida não retorna CPF nem
+contato de emergência. Esses dados aparecem somente na consulta detalhada
+autorizada.
+
+O formulário aplica máscara e normalização ao CPF, telefone e contato de
+emergência. Telefones seguem o padrão brasileiro de 10 ou 11 dígitos; nomes
+aceitam letras, acentos, espaços, hífen e apóstrofo; e a data de nascimento
+deve ser válida e não futura.
+
+Os resultados da validação operacional estão em
+[docs/validacao-cadastro-pacientes.md](docs/validacao-cadastro-pacientes.md).
 
 ## Desenvolvimento
 

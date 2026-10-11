@@ -1,0 +1,122 @@
+RESUMO PARA DISCUSSAO COM O GRUPO - PAPEIS DE USUARIO E PAINEL ADMINISTRATIVO
+Data: 2026-10-08
+
+1. CONTEXTO
+-----------
+Foi apresentado um mockup de um painel "admin" completo (login, visao
+geral, pacientes, internacoes, leitos, atendimentos, financeiro,
+relatorios, configuracoes). Ao analisar, identificamos que o mockup foge
+do escopo documentado do projeto, entao decidimos pausar essa frente e
+primeiro alinhar os fundamentos de papeis/autorizacao antes de desenhar
+qualquer painel.
+
+2. ESTADO ATUAL DO SISTEMA (verificado no codigo)
+--------------------------------------------------
+- So existem 2 paginas: login (/) e um dashboard placeholder (/dashboard)
+  sem conteudo real.
+- Nenhuma funcionalidade do dominio (pacientes, medicos, convenios,
+  atendimentos, internacoes, leitos, transferencias) esta implementada
+  ainda - e o proximo passo do roadmap.
+- O campo "papel" do usuario e texto livre, sem validacao/enum.
+- Nao existe checagem de autorizacao por papel - hoje o sistema so
+  verifica se o usuario esta logado, nao o que ele pode acessar. Isso ja
+  era uma pendencia conhecida na documentacao.
+
+3. PAPEIS DE USUARIO - PROPOSTA EM DISCUSSAO
+----------------------------------------------
+Documentacao original previa 3 papeis: recepcionista/administrativo,
+medico, enfermagem/gestao.
+
+Esta em discussao adicionar um 4o papel: "admin", cuja funcao nao e
+operar a jornada do paciente, mas sim definir ate onde cada papel tem
+acesso (autoridade de permissoes).
+
+Duas formas possiveis de implementar isso:
+
+  OPCAO A - Permissoes fixas (estatico)
+    O que e: regras de acesso fixas no backend, documentadas em spec.
+    Esforco: baixo.
+    Risco: baixo.
+    Recomendacao: RECOMENDADO para o contexto de projeto de faculdade.
+
+  OPCAO B - RBAC dinamico
+    O que e: tabelas de Papel/Permissao configuraveis + tela de
+    administracao.
+    Esforco: alto (equivalente a um modulo extra do tamanho de um
+    dominio inteiro).
+    Risco: alto risco de desviar o foco do projeto (jornada do paciente)
+    para construir um sistema de controle de acesso.
+    Recomendacao: nao recomendado agora.
+
+PENDENTE: decisao do grupo entre Opcao A e Opcao B.
+
+4. PONTO CRITICO EM ABERTO: BANCO DE DADOS
+---------------------------------------------
+Foi mencionada a possibilidade de usar Xano (plataforma no-code de
+backend/API externa) como banco de dados. Isso contradiz a stack
+documentada (AGENTS.md / project-overview.md): Reflex + banco relacional
+local (SQLite/MySQL) via SQLModel, sem dependencia externa.
+
+Trocar para Xano nao e so trocar o banco - e uma mudanca arquitetural
+completa (o backend passaria a chamar uma API externa em vez de acessar
+o banco diretamente). Pela regra do projeto, isso exige aprovacao
+explicita do grupo antes de prosseguir.
+
+PENDENTE: confirmacao do grupo se essa troca e para valer ou se foi so
+uma ideia descartada.
+
+5. PERGUNTAS QUE O GRUPO PRECISA DECIDIR
+-------------------------------------------
+1. Vamos mesmo migrar a persistencia para Xano, ou mantemos
+   SQLite/MySQL via SQLModel como ja documentado?
+2. Papel "admin": Opcao A (fixo/estatico) ou Opcao B (RBAC dinamico
+   configuravel)?
+3. Nomenclatura final dos papeis (recepcionista, medico, gestao, e
+   agora admin) - confirmar que sao so esses 4.
+4. A autorizacao por papel deve ser implementada antes ou junto da
+   primeira tela real (cadastro de paciente)?
+5. Cada papel tem sua propria "home" apos login, ou existe uma visao
+   consolidada so para gestao/admin?
+6. Confirmar que a proxima fatia funcional a implementar e cadastro de
+   paciente (conforme roadmap ja documentado), antes de qualquer painel.
+
+6. DECISOES DO GRUPO - 2026-10-09
+----------------------------------
+1. Persistencia: migrar para Xano. Esta decisao altera a arquitetura
+   documentada: o backend devera consumir a API do Xano em vez de usar
+   SQLite/MySQL via SQLModel. A mudanca precisa ser formalizada em uma
+   change do OpenSpec antes da implementacao.
+
+2. Autorizacao: usar permissoes fixas no backend (Opcao A). Nao sera
+   implementado RBAC configuravel nesta etapa.
+
+3. Papeis finais: recepcionista, medico, enfermagem/gestao e admin.
+
+4. Ordem de implementacao: a autorizacao por papel sera implementada
+   antes do cadastro de paciente.
+
+5. Navegacao: gestao e admin terao uma visao com dashboard, financeiro e
+   relatorios. A matriz aprovada ficou assim: recepcionista acessa pacientes,
+   medicos, convenios e atendimentos; medico visualiza pacientes e
+   atendimentos e registra diagnosticos; enfermagem/gestao acessa internacoes,
+   leitos, transferencias e historico; admin tem acesso total e gerencia
+   usuarios.
+
+6. Proxima fatia funcional: cadastro de paciente, apos a base de
+   autorizacao e a decisao arquitetural sobre Xano serem especificadas.
+
+7. ENCAMINHAMENTOS
+-------------------
+- Criar uma proposta OpenSpec para registrar a migracao arquitetural para
+  Xano e seus limites de responsabilidade.
+- Especificar a matriz fixa de permissoes dos quatro papeis, incluindo a
+  visao de gestao/admin com dashboard, financeiro e relatorios.
+- Confirmar na proposta se financeiro e relatorios fazem parte do escopo
+  imediato ou apenas da navegacao planejada para uma etapa futura.
+- Depois da aprovacao, implementar a autorizacao e entao o cadastro de
+  paciente.
+
+---
+Este resumo tambem esta salvo na memoria de sessao do agente
+(/memories/session/explore-papeis-dashboard-admin.md) para continuar a
+discussao assim que o grupo decidir esses pontos.

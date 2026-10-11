@@ -1,4 +1,4 @@
-"""Página inicial pós-login (placeholder) do Sistema de Gestão Hospitalar."""
+"""Página inicial protegida do Sistema de Gestão Hospitalar."""
 
 import reflex as rx
 
@@ -11,6 +11,20 @@ def dashboard() -> rx.Component:
         rx.vstack(
             rx.heading("Bem-vindo(a)!", size="8"),
             rx.text("Usuário: ", AuthState.login, " — papel: ", AuthState.papel),
+            rx.cond(
+                AuthState.pode_ver_pacientes,
+                rx.button(
+                    "Pacientes",
+                    on_click=rx.redirect("/pacientes"),
+                ),
+            ),
+            rx.cond(
+                AuthState.pode_ver_medicos,
+                rx.button(
+                    "Medicos",
+                    on_click=rx.redirect("/medicos"),
+                ),
+            ),
             rx.button("Sair", on_click=AuthState.do_logout),
             spacing="4",
             align="center",

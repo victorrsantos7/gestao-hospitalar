@@ -1,0 +1,63 @@
+# Spec Delta
+
+## Purpose
+
+Permitir registrar e consultar atendimentos da jornada do paciente, vinculando
+as entidades ja cadastradas com validacao, privacidade e autorizacao por papel.
+
+## ADDED Requirements
+
+### Requirement: Registro de atendimento autorizado
+
+O sistema MUST permitir que recepcionista ou admin registre um atendimento com
+paciente, medico, data, motivo e tipo, podendo informar um convenio. O backend
+MUST validar as referencias e os campos antes de persistir o registro.
+
+#### Scenario: Atendimento valido
+- **WHEN** recepcionista ou admin envia paciente, medico, data, motivo e tipo validos
+- **THEN** o sistema cria o atendimento, retorna seu identificador e confirma o registro
+
+#### Scenario: Convenio opcional
+- **WHEN** um usuario autorizado registra atendimento sem convenio
+- **THEN** o sistema aceita o registro e mantem o vinculo de convenio vazio
+
+#### Scenario: Papel sem permissao tenta registrar
+- **WHEN** medico ou enfermagem/gestao tenta criar um atendimento
+- **THEN** o backend rejeita a operacao e nao grava dados
+
+### Requirement: Dados e referencias validos
+
+O sistema MUST aceitar somente os tipos `consulta`, `emergencia` e `retorno`,
+MUST exigir data, motivo, paciente e medico, e MUST rejeitar referencias que
+nao existam ou estejam invalidas.
+
+#### Scenario: Tipo invalido
+- **WHEN** um usuario autorizado envia tipo diferente dos valores permitidos
+- **THEN** o sistema rejeita o atendimento e informa erro de validacao
+
+#### Scenario: Campo obrigatorio ausente
+- **WHEN** um usuario autorizado envia atendimento sem data, motivo, paciente ou medico
+- **THEN** o sistema rejeita o atendimento sem criar registro
+
+#### Scenario: Referencia inexistente
+- **WHEN** um usuario autorizado informa paciente, medico ou convenio inexistente
+- **THEN** o sistema rejeita o atendimento sem criar vinculo parcial
+
+### Requirement: Consulta de atendimentos autorizada
+
+O sistema MUST permitir que recepcionista, medico e admin consultem atendimentos
+protegidos, e MUST impedir que enfermagem/gestao consulte essa listagem nesta
+etapa.
+
+#### Scenario: Listagem permitida
+- **WHEN** recepcionista, medico ou admin solicita a listagem de atendimentos
+- **THEN** o sistema retorna os registros necessarios identificando paciente,
+  medico e convenio pelos nomes completos, sem dados de autenticacao ou campos internos
+
+#### Scenario: Listagem negada
+- **WHEN** enfermagem/gestao ou pessoa sem sessao solicita a listagem
+- **THEN** o backend rejeita a operacao e nao retorna atendimentos
+
+#### Scenario: Falha no servico remoto
+- **WHEN** a consulta de atendimentos nao pode ser concluida no servico remoto
+- **THEN** o sistema mantem a sessao e informa uma falha generica sem exibir dados parciais

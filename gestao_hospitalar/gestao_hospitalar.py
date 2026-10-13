@@ -8,6 +8,7 @@ from gestao_hospitalar.convenios import convenios
 from gestao_hospitalar.dashboard import dashboard
 from gestao_hospitalar.login import login
 from gestao_hospitalar.medicos import medicos
+from gestao_hospitalar.internacoes import internacoes
 from gestao_hospitalar.pacientes import pacientes
 
 app = rx.App()
@@ -36,4 +37,10 @@ app.add_page(
 	route="/atendimentos",
 	title="Atendimentos",
 	on_load=AuthState.carregar_atendimentos,
+)
+app.add_page(
+	internacoes,
+	route="/internacoes",
+	title="Internacoes e leitos",
+	on_load=AuthState.carregar_internacoes,
 )

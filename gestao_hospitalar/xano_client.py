@@ -153,7 +153,16 @@ class XanoClient:
         if response.status_code in {401, 403}:
             raise XanoAuthenticationError("Credenciais invalidas.")
         if response.status_code in {400, 409}:
-            raise XanoValidationError("Dados rejeitados pelo Xano.")
+            mensagem = "Dados rejeitados pelo Xano."
+            try:
+                payload = response.json()
+            except ValueError:
+                payload = None
+            if isinstance(payload, dict):
+                detalhe = payload.get("message") or payload.get("error")
+                if isinstance(detalhe, str) and detalhe.strip():
+                    mensagem = detalhe.strip()
+            raise XanoValidationError(mensagem)
         if response.status_code >= 400:
             raise XanoError("Xano rejeitou a requisicao.")
 
@@ -459,6 +468,35 @@ class XanoClient:
             raise XanoResponseError("Resposta invalida do Xano.")
         return self._normalizar_atendimento(payload)
 
+    def listar_atendimentos_internaveis(
+        self,
+        auth_token: str,
+    ) -> list[dict[str, Any]]:
+        response = self._request(
+            "GET",
+            "/atendimentos/opcoes-internacao",
+            auth_token=auth_token,
+        )
+        self._raise_for_status(response)
+        opcoes: list[dict[str, Any]] = []
+        for registro in self._extract_records(self._json(response)):
+            internacao = registro.get("internacao")
+            if isinstance(internacao, dict) and internacao.get("id"):
+                continue
+            paciente = registro.get("paciente")
+            opcao = {
+                chave: valor
+                for chave, valor in registro.items()
+                if chave not in {"paciente", "internacao"}
+            }
+            opcao["paciente_nome"] = (
+                str(paciente.get("nome", ""))
+                if isinstance(paciente, dict)
+                else f"#{opcao.get('paciente_id', '')}"
+            )
+            opcoes.append(opcao)
+        return opcoes
+
     def criar_diagnostico(
         self,
         auth_token: str,
@@ -500,3 +538,71 @@ class XanoClient:
             self._normalizar_diagnostico(registro)
             for registro in self._extract_records(self._json(response))
         ]
+
+    def criar_leito(
+        self,
+        auth_token: str,
+        numero: int,
+    ) -> int:
+        response = self._request(
+            "POST",
+            "/leitos",
+            auth_token=auth_token,
+            json={"numero": numero},
+        )
+        self._raise_for_status(response)
+        payload = self._json(response)
+        try:
+            return int(payload["id"])
+        except (KeyError, TypeError, ValueError) as error:
+            raise XanoResponseError("Resposta invalida do Xano.") from error
+
+    def listar_leitos(self, auth_token: str) -> list[dict[str, Any]]:
+        response = self._request(
+            "GET",
+            "/leitos",
+            auth_token=auth_token,
+        )
+        self._raise_for_status(response)
+        return self._extract_records(self._json(response))
+
+    def criar_internacao(
+        self,
+        auth_token: str,
+        dados: dict[str, Any],
+    ) -> int:
+        response = self._request(
+            "POST",
+            "/internacoes",
+            auth_token=auth_token,
+            json=dados,
+        )
+        self._raise_for_status(response)
+        payload = self._json(response)
+        try:
+            return int(payload["id"])
+        except (KeyError, TypeError, ValueError) as error:
+            raise XanoResponseError("Resposta invalida do Xano.") from error
+
+    def listar_internacoes(self, auth_token: str) -> list[dict[str, Any]]:
+        response = self._request(
+            "GET",
+            "/internacoes",
+            auth_token=auth_token,
+        )
+        self._raise_for_status(response)
+        return self._extract_records(self._json(response))
+
+    def registrar_alta(
+        self,
+        auth_token: str,
+        internacao_id: int,
+        data_saida: str,
+    ) -> None:
+        response = self._request(
+            "POST",
+            f"/internacoes/{internacao_id}/alta",
+            auth_token=auth_token,
+            json={"data_saida": data_saida},
+        )
+        self._raise_for_status(response)

@@ -8,6 +8,8 @@ from gestao_hospitalar.authorization import (
     RECURSO_DASHBOARD,
     RECURSO_ATENDIMENTOS,
     RECURSO_DIAGNOSTICOS,
+    RECURSO_INTERNACOES,
+    RECURSO_LEITOS,
     RECURSO_MEDICOS,
     RECURSO_PACIENTES,
     pode_acessar,
@@ -33,6 +35,12 @@ from gestao_hospitalar.validacao_diagnosticos import (
     data_diagnostico_valida,
     diagnostico_texto_valido,
     referencia_diagnostico_valida,
+)
+from gestao_hospitalar.validacao_internacoes import (
+    data_internacao_valida,
+    data_saida_valida,
+    numero_leito_valido,
+    status_internacao_valido,
 )
 from gestao_hospitalar.validacao_pacientes import (
     data_nascimento_valida,
@@ -127,6 +135,21 @@ class AuthState(rx.State):
     erro_diagnostico: str = ""
     sucesso_diagnostico: str = ""
 
+    leitos: list[dict[str, str]] = []
+    numero_leito: str = ""
+    erro_leito: str = ""
+    sucesso_leito: str = ""
+
+    internacoes: list[dict[str, str]] = []
+    atendimentos_internaveis: list[dict[str, str]] = []
+    atendimento_id_internacao: str = ""
+    leito_id_internacao: str = ""
+    data_entrada_internacao: str = ""
+    internacao_id_alta: str = ""
+    data_saida_internacao: str = ""
+    erro_internacao: str = ""
+    sucesso_internacao: str = ""
+
     @rx.var
     def is_authenticated(self) -> bool:
         """Indica se há um usuário autenticado na sessão atual."""
@@ -195,6 +218,51 @@ class AuthState(rx.State):
     @rx.var
     def pode_ver_diagnosticos(self) -> bool:
         return self._pode_acessar_recurso(RECURSO_DIAGNOSTICOS)
+
+    @rx.var
+    def possui_leitos(self) -> bool:
+        return bool(self.leitos)
+
+    @rx.var
+    def pode_ver_leitos(self) -> bool:
+        return self._pode_acessar_recurso(RECURSO_LEITOS)
+
+    @rx.var
+    def pode_cadastrar_leitos(self) -> bool:
+        return self._pode_acessar_recurso(RECURSO_LEITOS)
+
+    @rx.var
+    def possui_internacoes(self) -> bool:
+        return bool(self.internacoes)
+
+    @rx.var
+    def pode_ver_internacoes(self) -> bool:
+        return self._pode_acessar_recurso(RECURSO_INTERNACOES)
+
+    @rx.var
+    def pode_cadastrar_internacoes(self) -> bool:
+        return self._pode_acessar_recurso(RECURSO_INTERNACOES)
+
+    @rx.var
+    def opcoes_leitos_livres(self) -> list[str]:
+        return [
+            f"{leito.get('id', '')} - Leito {leito.get('numero', '')}"
+            for leito in self.leitos
+            if leito.get("status") == "livre"
+        ]
+
+    @rx.var
+    def opcoes_atendimentos_internaveis(self) -> list[str]:
+        return [
+            (
+                f"{atendimento.get('id', '')} - "
+                f"{atendimento.get('paciente_nome', '')} - "
+                f"{atendimento.get('data_atendimento', '')} - "
+                f"{atendimento.get('tipo', '')} - "
+                f"{atendimento.get('motivo', '')}"
+            )
+            for atendimento in self.atendimentos_internaveis
+        ]
 
     @rx.var
     def tipos_atendimento(self) -> list[str]:
@@ -339,6 +407,32 @@ class AuthState(rx.State):
         self.data_diagnostico = value
 
     @rx.event
+    def set_numero_leito(self, value: str):
+        self.numero_leito = value
+
+    @rx.event
+    def set_atendimento_id_internacao(self, value: str):
+        self.atendimento_id_internacao = value
+
+    @rx.event
+    def set_leito_id_internacao(self, value: str):
+        self.leito_id_internacao = value
+
+    @rx.event
+    def set_data_entrada_internacao(self, value: str):
+        self.data_entrada_internacao = value
+
+    @rx.event
+    def set_data_saida_internacao(self, value: str):
+        self.data_saida_internacao = value
+
+    @rx.event
+    def selecionar_internacao_alta(self, internacao_id: str):
+        self.internacao_id_alta = internacao_id
+        self.data_saida_internacao = ""
+        self.erro_internacao = ""
+
+    @rx.event
     def do_login(self):
         """Valida login e senha e estabelece a sessão em caso de sucesso."""
         logger.info("frontend_event name=do_login")
@@ -430,6 +524,19 @@ class AuthState(rx.State):
         self.data_diagnostico = ""
         self.erro_diagnostico = ""
         self.sucesso_diagnostico = ""
+        self.leitos = []
+        self.numero_leito = ""
+        self.erro_leito = ""
+        self.sucesso_leito = ""
+        self.internacoes = []
+        self.atendimentos_internaveis = []
+        self.atendimento_id_internacao = ""
+        self.leito_id_internacao = ""
+        self.data_entrada_internacao = ""
+        self.internacao_id_alta = ""
+        self.data_saida_internacao = ""
+        self.erro_internacao = ""
+        self.sucesso_internacao = ""
         return rx.redirect("/")
 
     @rx.event
@@ -886,6 +993,216 @@ class AuthState(rx.State):
         self.codigo_cid_diagnostico = ""
         self.data_diagnostico = ""
         self._carregar_diagnosticos(self.atendimento_id_diagnostico)
+
+    @rx.event
+    def carregar_leitos(self):
+        """Carrega leitos para papeis autorizados."""
+        if not self.pode_ver_leitos:
+            return rx.redirect("/dashboard")
+        self._carregar_leitos()
+
+    def _carregar_leitos(self):
+        self.erro_leito = ""
+        if not pode_acessar(self.is_authenticated, self.papel, RECURSO_LEITOS):
+            self.erro_leito = "Voce nao tem permissao para consultar leitos."
+            return
+        try:
+            registros = XanoClient(XanoConfig.from_env()).listar_leitos(
+                self._auth_token
+            )
+        except XanoError:
+            self.erro_leito = "Nao foi possivel carregar os leitos."
+            return
+        self.leitos = [
+            {chave: "" if valor is None else str(valor) for chave, valor in registro.items()}
+            for registro in registros
+        ]
+
+    @rx.event
+    def criar_leito(self):
+        """Valida e cria leito livre para enfermagem/gestao ou admin."""
+        self.erro_leito = ""
+        self.sucesso_leito = ""
+        if not self.pode_cadastrar_leitos:
+            self.erro_leito = "Voce nao tem permissao para cadastrar leitos."
+            return
+        numero = self.numero_leito.strip()
+        if not numero_leito_valido(numero):
+            self.erro_leito = "Informe um numero de leito valido."
+            return
+        try:
+            leito_id = XanoClient(XanoConfig.from_env()).criar_leito(
+                self._auth_token,
+                int(numero),
+            )
+        except XanoValidationError as error:
+            self.erro_leito = str(error)
+            return
+        except XanoError:
+            self.erro_leito = "Nao foi possivel cadastrar o leito."
+            return
+        self.sucesso_leito = f"Leito cadastrado (#{leito_id})."
+        self.numero_leito = ""
+        self._carregar_leitos()
+
+    @rx.event
+    def carregar_internacoes(self):
+        """Carrega leitos e internacoes para papeis autorizados."""
+        if not self.pode_ver_internacoes:
+            return rx.redirect("/dashboard")
+        self._carregar_leitos()
+        self._carregar_atendimentos_internaveis()
+        self._carregar_internacoes()
+
+    def _carregar_atendimentos_internaveis(self):
+        self.erro_internacao = ""
+        if not pode_acessar(
+            self.is_authenticated,
+            self.papel,
+            RECURSO_INTERNACOES,
+        ):
+            self.atendimentos_internaveis = []
+            return
+        try:
+            registros = XanoClient(XanoConfig.from_env()).listar_atendimentos_internaveis(
+                self._auth_token
+            )
+        except XanoError:
+            self.erro_internacao = "Nao foi possivel carregar os atendimentos elegiveis."
+            return
+        self.atendimentos_internaveis = [
+            {
+                chave: "" if valor is None else str(valor)
+                for chave, valor in registro.items()
+            }
+            for registro in registros
+        ]
+
+    def _carregar_internacoes(self):
+        self.erro_internacao = ""
+        if not pode_acessar(
+            self.is_authenticated,
+            self.papel,
+            RECURSO_INTERNACOES,
+        ):
+            self.erro_internacao = "Voce nao tem permissao para consultar internacoes."
+            return
+        try:
+            registros = XanoClient(XanoConfig.from_env()).listar_internacoes(
+                self._auth_token
+            )
+        except XanoError:
+            self.erro_internacao = "Nao foi possivel carregar as internacoes."
+            return
+        numeros_por_id = {
+            leito.get("id", ""): leito.get("numero", "")
+            for leito in self.leitos
+        }
+        self.internacoes = []
+        for registro in registros:
+            internacao = {
+                chave: "" if valor is None else str(valor)
+                for chave, valor in registro.items()
+            }
+            internacao["leito_numero"] = numeros_por_id.get(
+                internacao.get("leito_id", ""),
+                internacao.get("leito_id", ""),
+            )
+            self.internacoes.append(internacao)
+
+    @rx.event
+    def criar_internacao(self):
+        """Valida e cria internacao em leito livre."""
+        self.erro_internacao = ""
+        self.sucesso_internacao = ""
+        if not self.pode_cadastrar_internacoes:
+            self.erro_internacao = "Voce nao tem permissao para cadastrar internacoes."
+            return
+        atendimento_id = self.atendimento_id_internacao.split(" - ", 1)[0].strip()
+        leito_id = self.leito_id_internacao.split(" - ", 1)[0].strip()
+        if not referencia_atendimento_valida(atendimento_id):
+            self.erro_internacao = "Informe um atendimento valido."
+            return
+        if not numero_leito_valido(leito_id):
+            self.erro_internacao = "Informe um leito valido."
+            return
+        if not data_internacao_valida(self.data_entrada_internacao):
+            self.erro_internacao = "Informe uma data de entrada valida."
+            return
+        try:
+            internacao_id = XanoClient(XanoConfig.from_env()).criar_internacao(
+                self._auth_token,
+                {
+                    "atendimento_id": int(atendimento_id),
+                    "leito_id": int(leito_id),
+                    "data_entrada": self.data_entrada_internacao,
+                },
+            )
+        except XanoValidationError as error:
+            self.erro_internacao = str(error)
+            return
+        except XanoError:
+            self.erro_internacao = "Nao foi possivel cadastrar a internacao."
+            return
+        self.sucesso_internacao = f"Internacao cadastrada (#{internacao_id})."
+        self.atendimento_id_internacao = ""
+        self.leito_id_internacao = ""
+        self.data_entrada_internacao = ""
+        self._carregar_atendimentos_internaveis()
+        self._carregar_leitos()
+        self._carregar_internacoes()
+
+    @rx.event
+    def registrar_alta(self):
+        """Registra alta e libera o leito da internacao."""
+        self.erro_internacao = ""
+        self.sucesso_internacao = ""
+        if not self.pode_cadastrar_internacoes:
+            self.erro_internacao = "Voce nao tem permissao para registrar alta."
+            return
+        if not referencia_atendimento_valida(self.internacao_id_alta):
+            self.erro_internacao = "Selecione uma internacao valida."
+            return
+        internacao = next(
+            (
+                registro
+                for registro in self.internacoes
+                if registro.get("id") == self.internacao_id_alta
+            ),
+            None,
+        )
+        if internacao is None:
+            self.erro_internacao = "Internacao nao encontrada."
+            return
+        if not status_internacao_valido(internacao.get("status", "")):
+            self.erro_internacao = "Status de internacao invalido."
+            return
+        if internacao.get("status") != "internado":
+            self.erro_internacao = "Internacao ja encerrada."
+            return
+        if not data_saida_valida(
+            self.data_saida_internacao,
+            internacao.get("data_entrada", ""),
+        ):
+            self.erro_internacao = "Informe uma data de saida valida."
+            return
+        try:
+            XanoClient(XanoConfig.from_env()).registrar_alta(
+                self._auth_token,
+                int(self.internacao_id_alta),
+                self.data_saida_internacao,
+            )
+        except XanoValidationError:
+            self.erro_internacao = "A internacao nao pode receber alta."
+            return
+        except XanoError:
+            self.erro_internacao = "Nao foi possivel registrar a alta."
+            return
+        self.sucesso_internacao = "Alta registrada e leito liberado."
+        self.internacao_id_alta = ""
+        self.data_saida_internacao = ""
+        self._carregar_leitos()
+        self._carregar_internacoes()
 
     @rx.event
     def criar_atendimento(self):

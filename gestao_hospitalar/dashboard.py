@@ -39,6 +39,13 @@ def dashboard() -> rx.Component:
                     on_click=rx.redirect("/atendimentos"),
                 ),
             ),
+            rx.cond(
+                AuthState.pode_ver_internacoes,
+                rx.button(
+                    "Internacoes e leitos",
+                    on_click=rx.redirect("/internacoes"),
+                ),
+            ),
             rx.button("Sair", on_click=AuthState.do_logout),
             spacing="4",
             align="center",

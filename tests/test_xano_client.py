@@ -397,6 +397,134 @@ class XanoClientTests(unittest.TestCase):
         with self.assertRaises(XanoValidationError):
             client.criar_diagnostico("user-token", {"atendimento_id": 0})
 
+    def test_admission_operations_use_session_token_and_contract(self) -> None:
+        requests: list[httpx.Request] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            requests.append(request)
+            if request.url.path.endswith("/leitos") and request.method == "POST":
+                return httpx.Response(201, json={"id": 61})
+            if request.url.path.endswith("/internacoes") and request.method == "POST":
+                return httpx.Response(201, json={"id": 71})
+            if request.url.path.endswith("/alta"):
+                return httpx.Response(200, json={"id": 71, "status": "alta"})
+            if request.url.path.endswith("/leitos"):
+                return httpx.Response(
+                    200,
+                    json={"items": [{"id": 61, "numero": 101, "status": "livre"}]},
+                )
+            return httpx.Response(
+                200,
+                json={
+                    "items": [
+                        {
+                            "id": 71,
+                            "atendimento_id": 41,
+                            "paciente_id": 1,
+                            "leito_id": 61,
+                            "data_entrada": "2026-10-13",
+                            "data_saida": None,
+                            "status": "internado",
+                        }
+                    ]
+                },
+            )
+
+        client = XanoClient(
+            XanoConfig("https://example.xano.io/api:test", None, 5),
+            transport=httpx.MockTransport(handler),
+        )
+
+        leito_id = client.criar_leito("admission-token", 101)
+        leitos = client.listar_leitos("admission-token")
+        internacao_id = client.criar_internacao(
+            "admission-token",
+            {
+                "atendimento_id": 41,
+                "leito_id": leito_id,
+                "data_entrada": "2026-10-13",
+            },
+        )
+        internacoes = client.listar_internacoes("admission-token")
+        client.registrar_alta("admission-token", internacao_id, "2026-10-14")
+
+        self.assertEqual(leitos[0]["status"], "livre")
+        self.assertEqual(internacoes[0]["status"], "internado")
+        self.assertTrue(
+            all(
+                request.headers["authorization"] == "admission-token"
+                for request in requests
+            )
+        )
+        self.assertEqual(requests[0].url.path, "/api:test/leitos")
+        self.assertEqual(requests[2].url.path, "/api:test/internacoes")
+        self.assertEqual(requests[4].url.path, "/api:test/internacoes/71/alta")
+
+    def test_admission_creation_maps_validation_error(self) -> None:
+        client = XanoClient(
+            XanoConfig("https://example.xano.io/api:test", None, 5),
+            transport=httpx.MockTransport(
+                lambda request: httpx.Response(409)
+            ),
+        )
+
+        with self.assertRaises(XanoValidationError):
+            client.criar_internacao("user-token", {"leito_id": 61})
+
+    def test_internable_attendance_options_hide_existing_admissions(self) -> None:
+        def handler(request: httpx.Request) -> httpx.Response:
+            self.assertEqual(request.url.path, "/api:test/atendimentos/opcoes-internacao")
+            return httpx.Response(
+                200,
+                json={
+                    "items": [
+                        {
+                            "id": 2,
+                            "paciente_id": 1,
+                            "data_atendimento": "2026-10-13",
+                            "motivo": "Febre",
+                            "tipo": "emergencia",
+                            "paciente": {"nome": "Ana Ribeiro"},
+                            "internacao": {},
+                        },
+                        {
+                            "id": 1,
+                            "paciente_id": 1,
+                            "data_atendimento": "2026-10-12",
+                            "motivo": "Dor",
+                            "tipo": "consulta",
+                            "paciente": {"nome": "Ana Ribeiro"},
+                            "internacao": {"id": 71, "status": "alta"},
+                        },
+                    ]
+                },
+            )
+
+        client = XanoClient(
+            XanoConfig("https://example.xano.io/api:test", None, 5),
+            transport=httpx.MockTransport(handler),
+        )
+
+        opcoes = client.listar_atendimentos_internaveis("admission-token")
+
+        self.assertEqual(len(opcoes), 1)
+        self.assertEqual(opcoes[0]["id"], 2)
+        self.assertEqual(opcoes[0]["paciente_nome"], "Ana Ribeiro")
+
+    def test_validation_error_preserves_xano_message(self) -> None:
+        client = XanoClient(
+            XanoConfig("https://example.xano.io/api:test", None, 5),
+            transport=httpx.MockTransport(
+                lambda request: httpx.Response(
+                    409,
+                    json={"message": "Atendimento invalido."},
+                )
+            ),
+        )
+
+        with self.assertRaisesRegex(XanoValidationError, "Atendimento invalido"):
+            client.criar_internacao("user-token", {"leito_id": 61})
+
     def test_login_rejects_invalid_credentials(self) -> None:
         client = XanoClient(
             XanoConfig("https://example.xano.io/api:test", None, 5),

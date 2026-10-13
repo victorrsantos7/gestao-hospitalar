@@ -269,6 +269,78 @@ class XanoClient:
             raise XanoResponseError("Resposta invalida do Xano.")
         return payload
 
+    def criar_convenio(
+        self,
+        auth_token: str,
+        dados: dict[str, str],
+    ) -> int:
+        response = self._request(
+            "POST",
+            "/convenios",
+            auth_token=auth_token,
+            json=dados,
+        )
+        self._raise_for_status(response)
+        payload = self._json(response)
+        try:
+            return int(payload["id"])
+        except (KeyError, TypeError, ValueError) as error:
+            raise XanoResponseError("Resposta invalida do Xano.") from error
+
+    def listar_convenios(
+        self,
+        auth_token: str,
+    ) -> list[dict[str, Any]]:
+        response = self._request(
+            "GET",
+            "/convenios",
+            auth_token=auth_token,
+        )
+        self._raise_for_status(response)
+        return self._extract_records(self._json(response))
+
+    def consultar_convenio(
+        self,
+        auth_token: str,
+        convenio_id: int,
+    ) -> dict[str, Any]:
+        response = self._request(
+            "GET",
+            f"/convenios/{convenio_id}",
+            auth_token=auth_token,
+        )
+        self._raise_for_status(response)
+        payload = self._json(response)
+        if not isinstance(payload, dict):
+            raise XanoResponseError("Resposta invalida do Xano.")
+        return payload
+
+    def atualizar_convenio(
+        self,
+        auth_token: str,
+        convenio_id: int,
+        dados: dict[str, str],
+    ) -> None:
+        response = self._request(
+            "PATCH",
+            f"/convenios/{convenio_id}",
+            auth_token=auth_token,
+            json=dados,
+        )
+        self._raise_for_status(response)
+
+    def excluir_convenio(
+        self,
+        auth_token: str,
+        convenio_id: int,
+    ) -> None:
+        response = self._request(
+            "DELETE",
+            f"/convenios/{convenio_id}",
+            auth_token=auth_token,
+        )
+        self._raise_for_status(response)
+
     def listar_pacientes(
         self,
         auth_token: str,
@@ -310,3 +382,79 @@ class XanoClient:
         if not isinstance(payload, dict):
             raise XanoResponseError("Resposta invalida do Xano.")
         return payload
+
+    def criar_atendimento(
+        self,
+        auth_token: str,
+        dados: dict[str, Any],
+    ) -> int:
+        response = self._request(
+            "POST",
+            "/atendimentos",
+            auth_token=auth_token,
+            json=dados,
+        )
+        self._raise_for_status(response)
+        payload = self._json(response)
+        try:
+            return int(payload["id"])
+        except (KeyError, TypeError, ValueError) as error:
+            raise XanoResponseError("Resposta invalida do Xano.") from error
+
+    @staticmethod
+    def _normalizar_atendimento(registro: dict[str, Any]) -> dict[str, Any]:
+        atendimento = {
+            chave: valor
+            for chave, valor in registro.items()
+            if chave not in {"paciente", "medico", "convenio"}
+        }
+        paciente = registro.get("paciente")
+        medico = registro.get("medico")
+        convenio = registro.get("convenio")
+        atendimento["paciente_nome"] = (
+            str(paciente.get("nome", ""))
+            if isinstance(paciente, dict)
+            else f"#{atendimento.get('paciente_id', '')}"
+        )
+        atendimento["medico_nome"] = (
+            str(medico.get("nome", ""))
+            if isinstance(medico, dict)
+            else f"#{atendimento.get('medico_id', '')}"
+        )
+        atendimento["convenio_nome"] = (
+            str(convenio.get("nome", ""))
+            if isinstance(convenio, dict)
+            else "Nao informado"
+        )
+        return atendimento
+
+    def listar_atendimentos(
+        self,
+        auth_token: str,
+    ) -> list[dict[str, Any]]:
+        response = self._request(
+            "GET",
+            "/atendimentos",
+            auth_token=auth_token,
+        )
+        self._raise_for_status(response)
+        return [
+            self._normalizar_atendimento(registro)
+            for registro in self._extract_records(self._json(response))
+        ]
+
+    def consultar_atendimento(
+        self,
+        auth_token: str,
+        atendimento_id: int,
+    ) -> dict[str, Any]:
+        response = self._request(
+            "GET",
+            f"/atendimentos/{atendimento_id}",
+            auth_token=auth_token,
+        )
+        self._raise_for_status(response)
+        payload = self._json(response)
+        if not isinstance(payload, dict):
+            raise XanoResponseError("Resposta invalida do Xano.")
+        return self._normalizar_atendimento(payload)

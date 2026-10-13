@@ -199,6 +199,146 @@ class XanoClientTests(unittest.TestCase):
         )
         self.assertEqual(requests[1].url.query, b"")
 
+    def test_insurance_operations_use_session_token(self) -> None:
+        requests: list[httpx.Request] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            requests.append(request)
+            if request.method == "POST":
+                return httpx.Response(201, json={"id": 31})
+            if request.method == "PATCH":
+                return httpx.Response(204)
+            if request.method == "DELETE":
+                return httpx.Response(204)
+            if request.url.path.endswith("/31"):
+                return httpx.Response(
+                    200,
+                    json={"id": 31, "nome": "Saude Integral"},
+                )
+            return httpx.Response(
+                200,
+                json={"items": [{"id": 31, "nome": "Saude Integral"}]},
+            )
+
+        client = XanoClient(
+            XanoConfig("https://example.xano.io/api:test", None, 5),
+            transport=httpx.MockTransport(handler),
+        )
+        dados = {
+            "nome": "Saude Integral",
+            "nome_normalizado": "saude integral",
+            "tipo": "plano",
+            "cobertura": "Consultas",
+        }
+
+        convenio_id = client.criar_convenio("insurance-token", dados)
+        convenios = client.listar_convenios("insurance-token")
+        convenio = client.consultar_convenio("insurance-token", convenio_id)
+        client.atualizar_convenio("insurance-token", convenio_id, dados)
+        client.excluir_convenio("insurance-token", convenio_id)
+
+        self.assertEqual(convenio_id, 31)
+        self.assertEqual(convenios[0]["nome"], "Saude Integral")
+        self.assertEqual(convenio["id"], 31)
+        self.assertTrue(
+            all(
+                request.headers["authorization"] == "insurance-token"
+                for request in requests
+            )
+        )
+
+    def test_insurance_creation_maps_validation_error(self) -> None:
+        client = XanoClient(
+            XanoConfig("https://example.xano.io/api:test", None, 5),
+            transport=httpx.MockTransport(
+                lambda request: httpx.Response(409)
+            ),
+        )
+
+        with self.assertRaises(XanoValidationError):
+            client.criar_convenio("user-token", {"nome": "Saude Integral"})
+
+    def test_attendance_operations_use_session_token_and_contract(self) -> None:
+        requests: list[httpx.Request] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            requests.append(request)
+            if request.method == "POST":
+                return httpx.Response(201, json={"id": 41})
+            if request.url.path.endswith("/41"):
+                return httpx.Response(
+                    200,
+                    json={
+                        "id": 41,
+                        "tipo": "consulta",
+                        "paciente_id": 1,
+                        "medico_id": 2,
+                        "paciente": {"nome": "Ana Ribeiro"},
+                        "medico": {"nome": "Dra. Beatriz Lima"},
+                        "convenio": {"nome": "Integral"},
+                    },
+                )
+            return httpx.Response(
+                200,
+                json={
+                    "items": [
+                        {
+                            "id": 41,
+                            "tipo": "consulta",
+                            "paciente_id": 1,
+                            "medico_id": 2,
+                            "paciente": {"nome": "Ana Ribeiro"},
+                            "medico": {"nome": "Dra. Beatriz Lima"},
+                            "convenio": {"nome": "Integral"},
+                        }
+                    ]
+                },
+            )
+
+        client = XanoClient(
+            XanoConfig("https://example.xano.io/api:test", None, 5),
+            transport=httpx.MockTransport(handler),
+        )
+        dados = {
+            "paciente_id": 1,
+            "medico_id": 2,
+            "convenio_id": None,
+            "data_atendimento": "2026-10-12",
+            "motivo": "Consulta de retorno",
+            "tipo": "retorno",
+        }
+
+        atendimento_id = client.criar_atendimento("attendance-token", dados)
+        atendimentos = client.listar_atendimentos("attendance-token")
+        atendimento = client.consultar_atendimento("attendance-token", atendimento_id)
+
+        self.assertEqual(atendimento_id, 41)
+        self.assertEqual(atendimentos[0]["id"], 41)
+        self.assertEqual(atendimentos[0]["paciente_nome"], "Ana Ribeiro")
+        self.assertEqual(atendimentos[0]["medico_nome"], "Dra. Beatriz Lima")
+        self.assertEqual(atendimentos[0]["convenio_nome"], "Integral")
+        self.assertEqual(atendimento["tipo"], "consulta")
+        self.assertEqual(atendimento["paciente_nome"], "Ana Ribeiro")
+        self.assertTrue(
+            all(
+                request.headers["authorization"] == "attendance-token"
+                for request in requests
+            )
+        )
+        self.assertEqual(requests[0].url.path, "/api:test/atendimentos")
+        self.assertEqual(requests[1].url.query, b"")
+
+    def test_attendance_creation_maps_validation_error(self) -> None:
+        client = XanoClient(
+            XanoConfig("https://example.xano.io/api:test", None, 5),
+            transport=httpx.MockTransport(
+                lambda request: httpx.Response(400)
+            ),
+        )
+
+        with self.assertRaises(XanoValidationError):
+            client.criar_atendimento("user-token", {"tipo": "invalido"})
+
     def test_login_rejects_invalid_credentials(self) -> None:
         client = XanoClient(
             XanoConfig("https://example.xano.io/api:test", None, 5),

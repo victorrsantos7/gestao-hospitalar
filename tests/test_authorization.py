@@ -3,6 +3,7 @@ import unittest
 from gestao_hospitalar.authorization import (
     RECURSO_ATENDIMENTOS,
     RECURSO_CADASTRO_PACIENTES,
+    RECURSO_CONVENIOS,
     RECURSO_DIAGNOSTICOS,
     RECURSO_INTERNACOES,
     RECURSO_PACIENTES,
@@ -31,6 +32,12 @@ class AuthorizationTests(unittest.TestCase):
         self.assertTrue(tem_permissao("admin", "medicos"))
         self.assertFalse(tem_permissao("medico", "medicos"))
         self.assertFalse(tem_permissao("enfermagem_gestao", "medicos"))
+
+    def test_convenios_are_available_to_receptionist_and_admin_only(self) -> None:
+        self.assertTrue(tem_permissao("recepcionista", RECURSO_CONVENIOS))
+        self.assertTrue(tem_permissao("admin", RECURSO_CONVENIOS))
+        self.assertFalse(tem_permissao("medico", RECURSO_CONVENIOS))
+        self.assertFalse(tem_permissao("enfermagem_gestao", RECURSO_CONVENIOS))
 
     def test_enfermagem_gestao_accesses_admission_flow(self) -> None:
         self.assertTrue(tem_permissao("enfermagem_gestao", RECURSO_INTERNACOES))

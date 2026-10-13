@@ -25,6 +25,20 @@ def dashboard() -> rx.Component:
                     on_click=rx.redirect("/medicos"),
                 ),
             ),
+            rx.cond(
+                AuthState.pode_ver_convenios,
+                rx.button(
+                    "Convenios",
+                    on_click=rx.redirect("/convenios"),
+                ),
+            ),
+            rx.cond(
+                AuthState.pode_ver_atendimentos,
+                rx.button(
+                    "Atendimentos",
+                    on_click=rx.redirect("/atendimentos"),
+                ),
+            ),
             rx.button("Sair", on_click=AuthState.do_logout),
             spacing="4",
             align="center",

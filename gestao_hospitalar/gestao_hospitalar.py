@@ -3,6 +3,8 @@
 import reflex as rx
 
 from gestao_hospitalar.auth_state import AuthState
+from gestao_hospitalar.atendimentos import atendimentos
+from gestao_hospitalar.convenios import convenios
 from gestao_hospitalar.dashboard import dashboard
 from gestao_hospitalar.login import login
 from gestao_hospitalar.medicos import medicos
@@ -22,4 +24,16 @@ app.add_page(
 	route="/medicos",
 	title="Medicos",
 	on_load=AuthState.carregar_medicos,
+)
+app.add_page(
+	convenios,
+	route="/convenios",
+	title="Convenios",
+	on_load=AuthState.carregar_convenios,
+)
+app.add_page(
+	atendimentos,
+	route="/atendimentos",
+	title="Atendimentos",
+	on_load=AuthState.carregar_atendimentos,
 )

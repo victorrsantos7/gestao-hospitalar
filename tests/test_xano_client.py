@@ -339,6 +339,64 @@ class XanoClientTests(unittest.TestCase):
         with self.assertRaises(XanoValidationError):
             client.criar_atendimento("user-token", {"tipo": "invalido"})
 
+    def test_diagnosis_operations_use_session_token_and_contract(self) -> None:
+        requests: list[httpx.Request] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            requests.append(request)
+            if request.method == "POST":
+                return httpx.Response(201, json={"id": 51})
+            return httpx.Response(
+                200,
+                json={
+                    "items": [
+                        {
+                            "id": 51,
+                            "atendimento_id": 41,
+                            "descricao": "Hipertensao",
+                            "codigo_cid": "I10",
+                            "data_diagnostico": "2026-10-13",
+                        }
+                    ]
+                },
+            )
+
+        client = XanoClient(
+            XanoConfig("https://example.xano.io/api:test", None, 5),
+            transport=httpx.MockTransport(handler),
+        )
+        dados = {
+            "atendimento_id": 41,
+            "descricao": "Hipertensao",
+            "codigo_cid": "I10",
+            "data_diagnostico": "2026-10-13",
+        }
+
+        diagnostico_id = client.criar_diagnostico("diagnosis-token", dados)
+        diagnosticos = client.listar_diagnosticos("diagnosis-token", 41)
+
+        self.assertEqual(diagnostico_id, 51)
+        self.assertEqual(diagnosticos[0]["codigo_cid"], "I10")
+        self.assertTrue(
+            all(
+                request.headers["authorization"] == "diagnosis-token"
+                for request in requests
+            )
+        )
+        self.assertEqual(requests[0].url.path, "/api:test/diagnosticos")
+        self.assertEqual(requests[1].url.path, "/api:test/diagnosticos/41")
+
+    def test_diagnosis_creation_maps_validation_error(self) -> None:
+        client = XanoClient(
+            XanoConfig("https://example.xano.io/api:test", None, 5),
+            transport=httpx.MockTransport(
+                lambda request: httpx.Response(400)
+            ),
+        )
+
+        with self.assertRaises(XanoValidationError):
+            client.criar_diagnostico("user-token", {"atendimento_id": 0})
+
     def test_login_rejects_invalid_credentials(self) -> None:
         client = XanoClient(
             XanoConfig("https://example.xano.io/api:test", None, 5),

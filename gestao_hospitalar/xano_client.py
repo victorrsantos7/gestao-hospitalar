@@ -458,3 +458,45 @@ class XanoClient:
         if not isinstance(payload, dict):
             raise XanoResponseError("Resposta invalida do Xano.")
         return self._normalizar_atendimento(payload)
+
+    def criar_diagnostico(
+        self,
+        auth_token: str,
+        dados: dict[str, Any],
+    ) -> int:
+        response = self._request(
+            "POST",
+            "/diagnosticos",
+            auth_token=auth_token,
+            json=dados,
+        )
+        self._raise_for_status(response)
+        payload = self._json(response)
+        try:
+            return int(payload["id"])
+        except (KeyError, TypeError, ValueError) as error:
+            raise XanoResponseError("Resposta invalida do Xano.") from error
+
+    @staticmethod
+    def _normalizar_diagnostico(registro: dict[str, Any]) -> dict[str, Any]:
+        return {
+            chave: valor
+            for chave, valor in registro.items()
+            if chave not in {"atendimento"}
+        }
+
+    def listar_diagnosticos(
+        self,
+        auth_token: str,
+        atendimento_id: int,
+    ) -> list[dict[str, Any]]:
+        response = self._request(
+            "GET",
+            f"/diagnosticos/{atendimento_id}",
+            auth_token=auth_token,
+        )
+        self._raise_for_status(response)
+        return [
+            self._normalizar_diagnostico(registro)
+            for registro in self._extract_records(self._json(response))
+        ]

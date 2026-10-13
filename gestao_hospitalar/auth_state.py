@@ -7,6 +7,7 @@ from gestao_hospitalar.authorization import (
     RECURSO_CONVENIOS,
     RECURSO_DASHBOARD,
     RECURSO_ATENDIMENTOS,
+    RECURSO_DIAGNOSTICOS,
     RECURSO_MEDICOS,
     RECURSO_PACIENTES,
     pode_acessar,
@@ -27,6 +28,11 @@ from gestao_hospitalar.validacao_atendimentos import (
     motivo_atendimento_valido,
     referencia_atendimento_valida,
     tipo_atendimento_valido,
+)
+from gestao_hospitalar.validacao_diagnosticos import (
+    data_diagnostico_valida,
+    diagnostico_texto_valido,
+    referencia_diagnostico_valida,
 )
 from gestao_hospitalar.validacao_pacientes import (
     data_nascimento_valida,
@@ -113,6 +119,14 @@ class AuthState(rx.State):
     erro_atendimento: str = ""
     sucesso_atendimento: str = ""
 
+    diagnosticos: list[dict[str, str]] = []
+    atendimento_id_diagnostico: str = ""
+    descricao_diagnostico: str = ""
+    codigo_cid_diagnostico: str = ""
+    data_diagnostico: str = ""
+    erro_diagnostico: str = ""
+    sucesso_diagnostico: str = ""
+
     @rx.var
     def is_authenticated(self) -> bool:
         """Indica se há um usuário autenticado na sessão atual."""
@@ -173,6 +187,14 @@ class AuthState(rx.State):
     @rx.var
     def pode_cadastrar_atendimentos(self) -> bool:
         return self.is_authenticated and self.papel in {"recepcionista", "admin"}
+
+    @rx.var
+    def possui_diagnosticos(self) -> bool:
+        return bool(self.diagnosticos)
+
+    @rx.var
+    def pode_ver_diagnosticos(self) -> bool:
+        return self._pode_acessar_recurso(RECURSO_DIAGNOSTICOS)
 
     @rx.var
     def tipos_atendimento(self) -> list[str]:
@@ -305,6 +327,18 @@ class AuthState(rx.State):
         self.tipo_atendimento = value
 
     @rx.event
+    def set_descricao_diagnostico(self, value: str):
+        self.descricao_diagnostico = value
+
+    @rx.event
+    def set_codigo_cid_diagnostico(self, value: str):
+        self.codigo_cid_diagnostico = value
+
+    @rx.event
+    def set_data_diagnostico(self, value: str):
+        self.data_diagnostico = value
+
+    @rx.event
     def do_login(self):
         """Valida login e senha e estabelece a sessão em caso de sucesso."""
         logger.info("frontend_event name=do_login")
@@ -389,6 +423,13 @@ class AuthState(rx.State):
         self.tipo_atendimento = ""
         self.erro_atendimento = ""
         self.sucesso_atendimento = ""
+        self.diagnosticos = []
+        self.atendimento_id_diagnostico = ""
+        self.descricao_diagnostico = ""
+        self.codigo_cid_diagnostico = ""
+        self.data_diagnostico = ""
+        self.erro_diagnostico = ""
+        self.sucesso_diagnostico = ""
         return rx.redirect("/")
 
     @rx.event
@@ -770,6 +811,81 @@ class AuthState(rx.State):
         self.atendimento_selecionado = {
             chave: str(valor) for chave, valor in registro.items()
         }
+        self.atendimento_id_diagnostico = str(self.atendimento_selecionado.get("id", ""))
+        self.diagnosticos = []
+        if self.pode_ver_diagnosticos:
+            self._carregar_diagnosticos(self.atendimento_id_diagnostico)
+
+    def _carregar_diagnosticos(self, atendimento_id: str):
+        self.erro_diagnostico = ""
+        if not pode_acessar(
+            self.is_authenticated,
+            self.papel,
+            RECURSO_DIAGNOSTICOS,
+        ):
+            self.diagnosticos = []
+            return
+        if not referencia_diagnostico_valida(atendimento_id):
+            self.erro_diagnostico = "Nao foi possivel consultar os diagnosticos."
+            return
+        try:
+            registros = XanoClient(XanoConfig.from_env()).listar_diagnosticos(
+                self._auth_token,
+                int(atendimento_id),
+            )
+        except XanoError:
+            self.erro_diagnostico = "Nao foi possivel carregar os diagnosticos."
+            return
+        self.diagnosticos = [
+            {
+                chave: "" if valor is None else str(valor)
+                for chave, valor in registro.items()
+            }
+            for registro in registros
+        ]
+
+    @rx.event
+    def criar_diagnostico(self):
+        """Valida e cria diagnostico para medico ou admin."""
+        self.erro_diagnostico = ""
+        self.sucesso_diagnostico = ""
+        if not self.pode_ver_diagnosticos:
+            self.erro_diagnostico = (
+                "Voce nao tem permissao para cadastrar diagnosticos."
+            )
+            return
+        if not referencia_diagnostico_valida(self.atendimento_id_diagnostico):
+            self.erro_diagnostico = "Informe um atendimento valido."
+            return
+        if not diagnostico_texto_valido(self.descricao_diagnostico):
+            self.erro_diagnostico = "Informe a descricao do diagnostico."
+            return
+        if not data_diagnostico_valida(self.data_diagnostico):
+            self.erro_diagnostico = "Informe uma data de diagnostico valida."
+            return
+
+        try:
+            diagnostico_id = XanoClient(XanoConfig.from_env()).criar_diagnostico(
+                self._auth_token,
+                {
+                    "atendimento_id": int(self.atendimento_id_diagnostico),
+                    "descricao": self.descricao_diagnostico.strip(),
+                    "codigo_cid": self.codigo_cid_diagnostico.strip() or None,
+                    "data_diagnostico": self.data_diagnostico,
+                },
+            )
+        except XanoValidationError:
+            self.erro_diagnostico = "O atendimento informado e invalido."
+            return
+        except XanoError:
+            self.erro_diagnostico = "Nao foi possivel cadastrar o diagnostico."
+            return
+
+        self.sucesso_diagnostico = f"Diagnostico cadastrado (#{diagnostico_id})."
+        self.descricao_diagnostico = ""
+        self.codigo_cid_diagnostico = ""
+        self.data_diagnostico = ""
+        self._carregar_diagnosticos(self.atendimento_id_diagnostico)
 
     @rx.event
     def criar_atendimento(self):

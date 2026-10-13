@@ -98,6 +98,16 @@ def linha_internacao(internacao: dict[str, str]) -> rx.Component:
                 ),
                 rx.fragment(),
             ),
+            rx.cond(
+                AuthState.pode_ver_transferencias,
+                rx.button(
+                    "Ver transferencias",
+                    on_click=AuthState.selecionar_internacao_transferencia(
+                        internacao["id"]
+                    ),
+                ),
+                rx.fragment(),
+            ),
             align="start",
             width="100%",
         ),
@@ -123,6 +133,80 @@ def formulario_alta() -> rx.Component:
                     rx.text(AuthState.erro_internacao, color="red"),
                 ),
                 rx.button("Confirmar alta", on_click=AuthState.registrar_alta),
+                spacing="3",
+                width="100%",
+            ),
+            width="100%",
+        ),
+        rx.fragment(),
+    )
+
+
+def linha_transferencia(transferencia: dict[str, str]) -> rx.Component:
+    return rx.card(
+        rx.vstack(
+            rx.text("Transferencia #", transferencia["id"], weight="bold"),
+            rx.text("Data: ", transferencia["data_transferencia"]),
+            rx.text("Destino: ", transferencia["destino"]),
+            rx.text("Motivo: ", transferencia["motivo"]),
+            align="start",
+            width="100%",
+        ),
+        width="100%",
+    )
+
+
+def historico_transferencias() -> rx.Component:
+    return rx.cond(
+        AuthState.internacao_id_transferencia != "",
+        rx.card(
+            rx.vstack(
+                rx.heading("Transferencias", size="4"),
+                rx.cond(
+                    AuthState.erro_transferencia != "",
+                    rx.text(AuthState.erro_transferencia, color="red"),
+                ),
+                rx.cond(
+                    AuthState.sucesso_transferencia != "",
+                    rx.text(AuthState.sucesso_transferencia, color="green"),
+                ),
+                rx.cond(
+                    AuthState.possui_transferencias,
+                    rx.foreach(AuthState.transferencias, linha_transferencia),
+                    rx.text("Nenhuma transferencia registrada."),
+                ),
+                rx.cond(
+                    AuthState.internacao_transferencia_ativa,
+                    rx.vstack(
+                        rx.input(
+                            placeholder="Data da transferencia",
+                            type="date",
+                            value=AuthState.data_transferencia,
+                            on_change=AuthState.set_data_transferencia,
+                            width="100%",
+                        ),
+                        rx.input(
+                            placeholder="Setor de destino (ex.: UTI)",
+                            value=AuthState.destino_transferencia,
+                            on_change=AuthState.set_destino_transferencia,
+                            width="100%",
+                        ),
+                        rx.text_area(
+                            placeholder="Motivo da transferencia",
+                            value=AuthState.motivo_transferencia,
+                            on_change=AuthState.set_motivo_transferencia,
+                            width="100%",
+                        ),
+                        rx.button(
+                            "Registrar transferencia",
+                            on_click=AuthState.criar_transferencia,
+                            width="100%",
+                        ),
+                        spacing="3",
+                        width="100%",
+                    ),
+                    rx.text("Internacao encerrada; novas transferencias bloqueadas."),
+                ),
                 spacing="3",
                 width="100%",
             ),
@@ -172,6 +256,7 @@ def internacoes() -> rx.Component:
                 rx.text("Nenhuma internacao encontrada."),
             ),
             formulario_alta(),
+            historico_transferencias(),
             spacing="4",
             width="min(100%, 56em)",
             padding="2em",

@@ -606,3 +606,34 @@ class XanoClient:
             json={"data_saida": data_saida},
         )
         self._raise_for_status(response)
+
+    def criar_transferencia(
+        self,
+        auth_token: str,
+        dados: dict[str, Any],
+    ) -> int:
+        response = self._request(
+            "POST",
+            "/transferencias",
+            auth_token=auth_token,
+            json=dados,
+        )
+        self._raise_for_status(response)
+        payload = self._json(response)
+        try:
+            return int(payload["id"])
+        except (KeyError, TypeError, ValueError) as error:
+            raise XanoResponseError("Resposta invalida do Xano.") from error
+
+    def listar_transferencias(
+        self,
+        auth_token: str,
+        internacao_id: int,
+    ) -> list[dict[str, Any]]:
+        response = self._request(
+            "GET",
+            f"/internacoes/{internacao_id}/transferencias",
+            auth_token=auth_token,
+        )
+        self._raise_for_status(response)
+        return self._extract_records(self._json(response))

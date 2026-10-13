@@ -525,6 +525,56 @@ class XanoClientTests(unittest.TestCase):
         with self.assertRaisesRegex(XanoValidationError, "Atendimento invalido"):
             client.criar_internacao("user-token", {"leito_id": 61})
 
+    def test_transfer_operations_use_session_token_and_contract(self) -> None:
+        requests: list[httpx.Request] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            requests.append(request)
+            if request.method == "POST":
+                return httpx.Response(201, json={"id": 81})
+            return httpx.Response(
+                200,
+                json={
+                    "items": [
+                        {
+                            "id": 81,
+                            "internacao_id": 71,
+                            "data_transferencia": "2026-10-13",
+                            "destino": "UTI",
+                            "motivo": "Acompanhamento medico",
+                        }
+                    ]
+                },
+            )
+
+        client = XanoClient(
+            XanoConfig("https://example.xano.io/api:test", None, 5),
+            transport=httpx.MockTransport(handler),
+        )
+        dados = {
+            "internacao_id": 71,
+            "data_transferencia": "2026-10-13",
+            "destino": "UTI",
+            "motivo": "Acompanhamento medico",
+        }
+
+        transferencia_id = client.criar_transferencia("transfer-token", dados)
+        transferencias = client.listar_transferencias("transfer-token", 71)
+
+        self.assertEqual(transferencia_id, 81)
+        self.assertEqual(transferencias[0]["destino"], "UTI")
+        self.assertTrue(
+            all(
+                request.headers["authorization"] == "transfer-token"
+                for request in requests
+            )
+        )
+        self.assertEqual(requests[0].url.path, "/api:test/transferencias")
+        self.assertEqual(
+            requests[1].url.path,
+            "/api:test/internacoes/71/transferencias",
+        )
+
     def test_login_rejects_invalid_credentials(self) -> None:
         client = XanoClient(
             XanoConfig("https://example.xano.io/api:test", None, 5),

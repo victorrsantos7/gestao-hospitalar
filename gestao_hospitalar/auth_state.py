@@ -10,6 +10,7 @@ from gestao_hospitalar.authorization import (
     RECURSO_DIAGNOSTICOS,
     RECURSO_INTERNACOES,
     RECURSO_LEITOS,
+    RECURSO_TRANSFERENCIAS,
     RECURSO_MEDICOS,
     RECURSO_PACIENTES,
     pode_acessar,
@@ -41,6 +42,11 @@ from gestao_hospitalar.validacao_internacoes import (
     data_saida_valida,
     numero_leito_valido,
     status_internacao_valido,
+)
+from gestao_hospitalar.validacao_transferencias import (
+    data_transferencia_valida,
+    referencia_transferencia_valida,
+    transferencia_texto_valida,
 )
 from gestao_hospitalar.validacao_pacientes import (
     data_nascimento_valida,
@@ -150,6 +156,14 @@ class AuthState(rx.State):
     erro_internacao: str = ""
     sucesso_internacao: str = ""
 
+    transferencias: list[dict[str, str]] = []
+    internacao_id_transferencia: str = ""
+    data_transferencia: str = ""
+    destino_transferencia: str = ""
+    motivo_transferencia: str = ""
+    erro_transferencia: str = ""
+    sucesso_transferencia: str = ""
+
     @rx.var
     def is_authenticated(self) -> bool:
         """Indica se há um usuário autenticado na sessão atual."""
@@ -242,6 +256,22 @@ class AuthState(rx.State):
     @rx.var
     def pode_cadastrar_internacoes(self) -> bool:
         return self._pode_acessar_recurso(RECURSO_INTERNACOES)
+
+    @rx.var
+    def pode_ver_transferencias(self) -> bool:
+        return self._pode_acessar_recurso(RECURSO_TRANSFERENCIAS)
+
+    @rx.var
+    def possui_transferencias(self) -> bool:
+        return bool(self.transferencias)
+
+    @rx.var
+    def internacao_transferencia_ativa(self) -> bool:
+        return any(
+            registro.get("id") == self.internacao_id_transferencia
+            and registro.get("status") == "internado"
+            for registro in self.internacoes
+        )
 
     @rx.var
     def opcoes_leitos_livres(self) -> list[str]:
@@ -433,6 +463,28 @@ class AuthState(rx.State):
         self.erro_internacao = ""
 
     @rx.event
+    def selecionar_internacao_transferencia(self, internacao_id: str):
+        self.internacao_id_transferencia = internacao_id
+        self.data_transferencia = ""
+        self.destino_transferencia = ""
+        self.motivo_transferencia = ""
+        self.erro_transferencia = ""
+        self.sucesso_transferencia = ""
+        self._carregar_transferencias(internacao_id)
+
+    @rx.event
+    def set_data_transferencia(self, value: str):
+        self.data_transferencia = value
+
+    @rx.event
+    def set_destino_transferencia(self, value: str):
+        self.destino_transferencia = value
+
+    @rx.event
+    def set_motivo_transferencia(self, value: str):
+        self.motivo_transferencia = value
+
+    @rx.event
     def do_login(self):
         """Valida login e senha e estabelece a sessão em caso de sucesso."""
         logger.info("frontend_event name=do_login")
@@ -537,6 +589,13 @@ class AuthState(rx.State):
         self.data_saida_internacao = ""
         self.erro_internacao = ""
         self.sucesso_internacao = ""
+        self.transferencias = []
+        self.internacao_id_transferencia = ""
+        self.data_transferencia = ""
+        self.destino_transferencia = ""
+        self.motivo_transferencia = ""
+        self.erro_transferencia = ""
+        self.sucesso_transferencia = ""
         return rx.redirect("/")
 
     @rx.event
@@ -1203,6 +1262,92 @@ class AuthState(rx.State):
         self.data_saida_internacao = ""
         self._carregar_leitos()
         self._carregar_internacoes()
+
+    def _carregar_transferencias(self, internacao_id: str):
+        self.erro_transferencia = ""
+        if not pode_acessar(
+            self.is_authenticated,
+            self.papel,
+            RECURSO_TRANSFERENCIAS,
+        ):
+            self.transferencias = []
+            return
+        if not referencia_transferencia_valida(internacao_id):
+            self.erro_transferencia = "Informe uma internacao valida."
+            return
+        try:
+            registros = XanoClient(XanoConfig.from_env()).listar_transferencias(
+                self._auth_token,
+                int(internacao_id),
+            )
+        except XanoError:
+            self.erro_transferencia = "Nao foi possivel carregar as transferencias."
+            return
+        self.transferencias = [
+            {
+                chave: "" if valor is None else str(valor)
+                for chave, valor in registro.items()
+            }
+            for registro in registros
+        ]
+
+    @rx.event
+    def criar_transferencia(self):
+        """Valida e cria transferencia em internacao ativa."""
+        self.erro_transferencia = ""
+        self.sucesso_transferencia = ""
+        if not self.pode_ver_transferencias:
+            self.erro_transferencia = "Voce nao tem permissao para transferencias."
+            return
+        if not referencia_transferencia_valida(self.internacao_id_transferencia):
+            self.erro_transferencia = "Selecione uma internacao valida."
+            return
+        internacao = next(
+            (
+                registro
+                for registro in self.internacoes
+                if registro.get("id") == self.internacao_id_transferencia
+            ),
+            None,
+        )
+        if internacao is None:
+            self.erro_transferencia = "Internacao nao encontrada."
+            return
+        if internacao.get("status") != "internado":
+            self.erro_transferencia = "Internacao encerrada."
+            return
+        if not data_transferencia_valida(self.data_transferencia):
+            self.erro_transferencia = "Informe uma data de transferencia valida."
+            return
+        if not transferencia_texto_valida(self.destino_transferencia):
+            self.erro_transferencia = "Informe o destino da transferencia."
+            return
+        if not transferencia_texto_valida(self.motivo_transferencia):
+            self.erro_transferencia = "Informe o motivo da transferencia."
+            return
+        try:
+            transferencia_id = XanoClient(XanoConfig.from_env()).criar_transferencia(
+                self._auth_token,
+                {
+                    "internacao_id": int(self.internacao_id_transferencia),
+                    "data_transferencia": self.data_transferencia,
+                    "destino": self.destino_transferencia.strip(),
+                    "motivo": self.motivo_transferencia.strip(),
+                },
+            )
+        except XanoValidationError as error:
+            self.erro_transferencia = str(error)
+            return
+        except XanoError:
+            self.erro_transferencia = "Nao foi possivel cadastrar a transferencia."
+            return
+        self.sucesso_transferencia = (
+            f"Transferencia cadastrada (#{transferencia_id})."
+        )
+        self.data_transferencia = ""
+        self.destino_transferencia = ""
+        self.motivo_transferencia = ""
+        self._carregar_transferencias(self.internacao_id_transferencia)
 
     @rx.event
     def criar_atendimento(self):

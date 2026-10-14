@@ -7,3 +7,5 @@ assets/external/
 .venv/
 *.log
 .env
+backups/
+.xano-*/

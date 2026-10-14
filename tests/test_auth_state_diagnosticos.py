@@ -30,7 +30,7 @@ class AuthStateDiagnosticosTests(unittest.TestCase):
         state.atendimento_id_diagnostico = "41"
         state.descricao_diagnostico = ""
         state.codigo_cid_diagnostico = "I10"
-        state.data_diagnostico = "13/10/2026"
+        state.data_diagnostico = "2026-10-13"
         state.erro_diagnostico = ""
         state.sucesso_diagnostico = ""
 
@@ -47,7 +47,7 @@ class AuthStateDiagnosticosTests(unittest.TestCase):
         state.atendimento_id_diagnostico = "41"
         state.descricao_diagnostico = "Hipertensao"
         state.codigo_cid_diagnostico = "I10"
-        state.data_diagnostico = "13/10/2026"
+        state.data_diagnostico = "2026-10-13"
         state.erro_diagnostico = ""
         state.sucesso_diagnostico = ""
 
@@ -81,7 +81,7 @@ class AuthStateDiagnosticosTests(unittest.TestCase):
         state.atendimento_id_diagnostico = "41"
         state.descricao_diagnostico = "Hipertensao"
         state.codigo_cid_diagnostico = ""
-        state.data_diagnostico = "13/10/2026"
+        state.data_diagnostico = "2026-10-13"
         state.erro_diagnostico = ""
         state.sucesso_diagnostico = ""
 

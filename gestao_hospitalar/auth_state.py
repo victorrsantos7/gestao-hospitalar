@@ -37,6 +37,7 @@ from gestao_hospitalar.validacao_convenios import (
     tipo_convenio_valido,
 )
 from gestao_hospitalar.validacao_atendimentos import (
+    TIPOS_ATENDIMENTO,
     data_atendimento_valida,
     motivo_atendimento_valido,
     referencia_atendimento_valida,
@@ -348,6 +349,10 @@ class AuthState(rx.State):
         ]
 
     @rx.var
+    def tipos_atendimento(self) -> list[str]:
+        return list(TIPOS_ATENDIMENTO)
+
+    @rx.var
     def opcoes_pacientes_atendimento(self) -> list[str]:
         return [
             f"{paciente.get('id', '')} - {paciente.get('nome', '')}"
@@ -419,7 +424,7 @@ class AuthState(rx.State):
 
     @rx.event
     def set_nascimento_paciente(self, value: str):
-        self.nascimento_paciente = formatar_data_br(value)
+        self.nascimento_paciente = value
 
     @rx.event
     def set_telefone_paciente(self, value: str):
@@ -475,7 +480,7 @@ class AuthState(rx.State):
 
     @rx.event
     def set_data_atendimento(self, value: str):
-        self.data_atendimento = formatar_data_br(value)
+        self.data_atendimento = value
 
     @rx.event
     def set_motivo_atendimento(self, value: str):
@@ -495,7 +500,7 @@ class AuthState(rx.State):
 
     @rx.event
     def set_data_diagnostico(self, value: str):
-        self.data_diagnostico = formatar_data_br(value)
+        self.data_diagnostico = value
 
     @rx.event
     def set_numero_leito(self, value: str):
@@ -511,26 +516,20 @@ class AuthState(rx.State):
 
     @rx.event
     def set_data_entrada_internacao(self, value: str):
-        self.data_entrada_internacao = formatar_data_br(value)
+        self.data_entrada_internacao = value
 
     @rx.event
     def set_data_saida_internacao(self, value: str):
-        self.data_saida_internacao = formatar_data_br(value)
+        self.data_saida_internacao = value
 
     @rx.event
     def selecionar_internacao_alta(self, internacao_id: str):
-        if self.internacao_id_alta == internacao_id:
-            self.internacao_id_alta = ""
-            return
         self.internacao_id_alta = internacao_id
         self.data_saida_internacao = ""
         self.erro_internacao = ""
 
     @rx.event
     def selecionar_internacao_transferencia(self, internacao_id: str):
-        if self.internacao_id_transferencia == internacao_id:
-            self.internacao_id_transferencia = ""
-            return
         self.internacao_id_transferencia = internacao_id
         self.data_transferencia = ""
         self.destino_transferencia = ""
@@ -541,7 +540,7 @@ class AuthState(rx.State):
 
     @rx.event
     def set_data_transferencia(self, value: str):
-        self.data_transferencia = formatar_data_br(value)
+        self.data_transferencia = value
 
     @rx.event
     def set_destino_transferencia(self, value: str):
@@ -644,7 +643,6 @@ class AuthState(rx.State):
         ) = valores_sessao_encerrada()
         self.pacientes = []
         self.paciente_selecionado = {}
-        self.id_paciente_edicao = ""
         self.nome_paciente = ""
         self.cpf_paciente = ""
         self.nascimento_paciente = ""
@@ -672,7 +670,6 @@ class AuthState(rx.State):
         self.sucesso_convenio = ""
         self.atendimentos = []
         self.atendimento_selecionado = {}
-        self.id_atendimento_edicao = ""
         self.paciente_id_atendimento = ""
         self.medico_id_atendimento = ""
         self.convenio_id_atendimento = ""
@@ -821,7 +818,8 @@ class AuthState(rx.State):
         """Preenche o formulario com os dados do medico para edicao."""
         try:
             registro = next(
-                medico for medico in self.medicos
+                medico
+                for medico in self.medicos
                 if medico.get("id") == str(medico_id)
             )
         except StopIteration:
@@ -939,6 +937,76 @@ class AuthState(rx.State):
         self.medico_selecionado = {}
         if self.id_medico_edicao == str(medico_id):
             self.cancelar_edicao_medico()
+        self._carregar_medicos()
+
+    @rx.event
+    def criar_medico(self):
+        """Valida e cria um medico para recepcionista ou admin."""
+        self.erro_medico = ""
+        self.sucesso_medico = ""
+        if not pode_acessar(self.is_authenticated, self.papel, RECURSO_MEDICOS):
+            self.erro_medico = "Você não tem permissão para cadastrar médicos."
+            return
+
+        campos = [
+            self.nome_medico,
+            self.crm_medico,
+            self.especialidade_medico,
+            self.telefone_medico,
+        ]
+        if not all(campo.strip() for campo in campos):
+            self.erro_medico = "Preencha todos os campos do médico."
+            return
+
+        nome = normalizar_nome(self.nome_medico)
+        crm = normalizar_crm(self.crm_medico)
+        telefone = normalizar_telefone(self.telefone_medico)
+        if not nome_valido(nome):
+            self.erro_medico = "Informe um nome válido."
+            return
+        if not crm_valido(crm):
+            self.erro_medico = "Informe um CRM válido."
+            return
+        if not telefone_valido(telefone):
+            self.erro_medico = "Informe um telefone válido."
+            return
+
+        try:
+            medicos_existentes = XanoClient(XanoConfig.from_env()).listar_medicos(
+                self._auth_token
+            )
+        except XanoError:
+            self.erro_medico = "Não foi possível validar o CRM."
+            return
+        if any(
+            normalizar_crm(str(medico.get("crm", ""))) == crm
+            for medico in medicos_existentes
+        ):
+            self.erro_medico = "O CRM já está cadastrado."
+            return
+
+        try:
+            medico_id = XanoClient(XanoConfig.from_env()).criar_medico(
+                self._auth_token,
+                {
+                    "nome": nome,
+                    "crm": crm,
+                    "especialidade": self.especialidade_medico.strip(),
+                    "telefone": telefone,
+                },
+            )
+        except XanoValidationError:
+            self.erro_medico = "O CRM já está cadastrado."
+            return
+        except XanoError:
+            self.erro_medico = "Não foi possível cadastrar o médico."
+            return
+
+        self.sucesso_medico = f"Médico cadastrado (#{medico_id})."
+        self.nome_medico = ""
+        self.crm_medico = ""
+        self.especialidade_medico = ""
+        self.telefone_medico = ""
         self._carregar_medicos()
 
     @rx.event
@@ -1207,7 +1275,7 @@ class AuthState(rx.State):
         if not diagnostico_texto_valido(self.descricao_diagnostico):
             self.erro_diagnostico = "Informe a descrição do diagnóstico."
             return
-        if not data_diagnostico_valida(data_br_para_iso(self.data_diagnostico)):
+        if not data_diagnostico_valida(self.data_diagnostico):
             self.erro_diagnostico = "Informe uma data de diagnóstico válida."
             return
 
@@ -1218,7 +1286,7 @@ class AuthState(rx.State):
                     "atendimento_id": int(self.atendimento_id_diagnostico),
                     "descricao": self.descricao_diagnostico.strip(),
                     "codigo_cid": self.codigo_cid_diagnostico.strip() or None,
-                    "data_diagnostico": data_br_para_iso(self.data_diagnostico),
+                    "data_diagnostico": self.data_diagnostico,
                 },
             )
         except XanoValidationError:
@@ -1366,17 +1434,16 @@ class AuthState(rx.State):
         if not numero_leito_valido(leito_id):
             self.erro_internacao = "Informe um leito válido."
             return
-        if not data_internacao_valida(data_br_para_iso(self.data_entrada_internacao)):
+        if not data_internacao_valida(self.data_entrada_internacao):
             self.erro_internacao = "Informe uma data de entrada válida."
             return
-        data_entrada_iso = data_br_para_iso(self.data_entrada_internacao)
         try:
             internacao_id = XanoClient(XanoConfig.from_env()).criar_internacao(
                 self._auth_token,
                 {
                     "atendimento_id": int(atendimento_id),
                     "leito_id": int(leito_id),
-                    "data_entrada": data_entrada_iso,
+                    "data_entrada": self.data_entrada_internacao,
                 },
             )
         except XanoValidationError as error:
@@ -1422,7 +1489,7 @@ class AuthState(rx.State):
             self.erro_internacao = "Internação já encerrada."
             return
         if not data_saida_valida(
-            data_br_para_iso(self.data_saida_internacao),
+            self.data_saida_internacao,
             internacao.get("data_entrada", ""),
         ):
             self.erro_internacao = "Informe uma data de saída válida."
@@ -1431,7 +1498,7 @@ class AuthState(rx.State):
             XanoClient(XanoConfig.from_env()).registrar_alta(
                 self._auth_token,
                 int(self.internacao_id_alta),
-                data_br_para_iso(self.data_saida_internacao),
+                self.data_saida_internacao,
             )
         except XanoValidationError:
             self.erro_internacao = "A internação não pode receber alta."
@@ -1498,7 +1565,7 @@ class AuthState(rx.State):
         if internacao.get("status") != "internado":
             self.erro_transferencia = "Internação encerrada."
             return
-        if not data_transferencia_valida(data_br_para_iso(self.data_transferencia)):
+        if not data_transferencia_valida(self.data_transferencia):
             self.erro_transferencia = "Informe uma data de transferência válida."
             return
         if not transferencia_texto_valida(self.destino_transferencia):
@@ -1512,7 +1579,7 @@ class AuthState(rx.State):
                 self._auth_token,
                 {
                     "internacao_id": int(self.internacao_id_transferencia),
-                    "data_transferencia": data_br_para_iso(self.data_transferencia),
+                    "data_transferencia": self.data_transferencia,
                     "destino": self.destino_transferencia.strip(),
                     "motivo": self.motivo_transferencia.strip(),
                 },
@@ -1647,6 +1714,78 @@ class AuthState(rx.State):
 
         self.sucesso_atendimento = mensagem
         self.cancelar_edicao_atendimento()
+        self._carregar_atendimentos()
+
+    @rx.event
+    def criar_atendimento(self):
+        """Mantém o fluxo de criação direta usado pelas integrações existentes."""
+        self.erro_atendimento = ""
+        self.sucesso_atendimento = ""
+        if not self.pode_cadastrar_atendimentos:
+            self.erro_atendimento = (
+                "Você não tem permissão para cadastrar atendimentos."
+            )
+            return
+
+        paciente_id = self.paciente_id_atendimento.split(" - ", 1)[0]
+        medico_id = self.medico_id_atendimento.split(" - ", 1)[0]
+        convenio_id = self.convenio_id_atendimento.split(" - ", 1)[0]
+        campos_obrigatorios = [
+            paciente_id,
+            medico_id,
+            self.data_atendimento,
+            self.motivo_atendimento,
+            self.tipo_atendimento,
+        ]
+        if not all(campo.strip() for campo in campos_obrigatorios):
+            self.erro_atendimento = "Preencha todos os campos do atendimento."
+            return
+        if not referencia_atendimento_valida(paciente_id):
+            self.erro_atendimento = "Informe um paciente válido."
+            return
+        if not referencia_atendimento_valida(medico_id):
+            self.erro_atendimento = "Informe um médico válido."
+            return
+        if convenio_id and not referencia_atendimento_valida(convenio_id):
+            self.erro_atendimento = "Informe um convênio válido."
+            return
+        if not data_atendimento_valida(self.data_atendimento):
+            self.erro_atendimento = "Informe uma data de atendimento válida."
+            return
+        if not motivo_atendimento_valido(self.motivo_atendimento):
+            self.erro_atendimento = "Informe o motivo do atendimento."
+            return
+        if not tipo_atendimento_valido(self.tipo_atendimento):
+            self.erro_atendimento = "Informe um tipo de atendimento válido."
+            return
+
+        dados: dict[str, int | str | None] = {
+            "paciente_id": int(paciente_id),
+            "medico_id": int(medico_id),
+            "convenio_id": int(convenio_id) if convenio_id else None,
+            "data_atendimento": self.data_atendimento,
+            "motivo": self.motivo_atendimento.strip(),
+            "tipo": self.tipo_atendimento,
+        }
+        try:
+            atendimento_id = XanoClient(XanoConfig.from_env()).criar_atendimento(
+                self._auth_token,
+                dados,
+            )
+        except XanoValidationError:
+            self.erro_atendimento = "As referências do atendimento são inválidas."
+            return
+        except XanoError:
+            self.erro_atendimento = "Não foi possível cadastrar o atendimento."
+            return
+
+        self.sucesso_atendimento = f"Atendimento cadastrado (#{atendimento_id})."
+        self.paciente_id_atendimento = ""
+        self.medico_id_atendimento = ""
+        self.convenio_id_atendimento = ""
+        self.data_atendimento = ""
+        self.motivo_atendimento = ""
+        self.tipo_atendimento = ""
         self._carregar_atendimentos()
 
     @rx.event

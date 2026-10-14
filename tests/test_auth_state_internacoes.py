@@ -30,7 +30,7 @@ class AuthStateInternacoesTests(unittest.TestCase):
         state.papel = "medico"
         state.atendimento_id_internacao = "41"
         state.leito_id_internacao = "1 - Leito 101"
-        state.data_entrada_internacao = "13/10/2026"
+        state.data_entrada_internacao = "2026-10-13"
         state.erro_internacao = ""
         state.sucesso_internacao = ""
 
@@ -90,7 +90,7 @@ class AuthStateInternacoesTests(unittest.TestCase):
         state.papel = "enfermagem_gestao"
         state.atendimento_id_internacao = "41"
         state.leito_id_internacao = "61 - Leito 101"
-        state.data_entrada_internacao = "13/10/2026"
+        state.data_entrada_internacao = "2026-10-13"
         state.erro_internacao = ""
         state.sucesso_internacao = ""
         client = Mock()
@@ -140,7 +140,7 @@ class AuthStateInternacoesTests(unittest.TestCase):
         state.usuario_id = 10
         state.papel = "admin"
         state.internacao_id_alta = "71"
-        state.data_saida_internacao = "12/10/2026"
+        state.data_saida_internacao = "2026-10-12"
         state.internacoes = [
             {
                 "id": "71",
@@ -162,7 +162,7 @@ class AuthStateInternacoesTests(unittest.TestCase):
         state.usuario_id = 10
         state.papel = "enfermagem_gestao"
         state.internacao_id_alta = "71"
-        state.data_saida_internacao = "14/10/2026"
+        state.data_saida_internacao = "2026-10-14"
         state.internacoes = [
             {
                 "id": "71",

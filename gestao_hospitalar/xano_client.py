@@ -97,7 +97,7 @@ class XanoClient:
         if auth_token:
             headers["Authorization"] = auth_token
         elif self.config.api_token:
-            headers["Authorization"] = f"Bearer {self.config.api_token}"
+            headers["Authorization"] = self.config.api_token
         return headers
 
     def _request(

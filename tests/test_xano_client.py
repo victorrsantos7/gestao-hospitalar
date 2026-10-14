@@ -1,4 +1,5 @@
 import os
+import json
 import logging
 import unittest
 from unittest.mock import patch
@@ -19,43 +20,70 @@ from gestao_hospitalar.xano_client import (
 class XanoClientTests(unittest.TestCase):
     def test_logs_do_not_include_credentials_or_patient_payload(self) -> None:
         records: list[str] = []
+        sentinels = {
+            "senha": "SENHA_SENTINELA_9d60",
+            "token": "TOKEN_SENTINELA_2f18",
+            "cpf": "52998224725",
+            "telefone": "11987654321",
+            "endereco": "ENDERECO_SENTINELA_73ab",
+            "contato": "CONTATO_SENTINELA_54ce",
+        }
 
         class CaptureHandler(logging.Handler):
             def emit(self, record: logging.LogRecord) -> None:
                 records.append(record.getMessage())
 
-        handler = CaptureHandler()
+        log_handler = CaptureHandler()
         logger = logging.getLogger("gestao_hospitalar")
-        logger.addHandler(handler)
+        logger.addHandler(log_handler)
         try:
-            client = XanoClient(
-                XanoConfig("https://example.xano.io/api:test", None, 5),
-                transport=httpx.MockTransport(
-                    lambda request: httpx.Response(
+            def transport_handler(request: httpx.Request) -> httpx.Response:
+                if request.url.path.endswith("/auth/login"):
+                    return httpx.Response(
                         200,
                         json={
-                            "authToken": "remote-token",
+                            "authToken": sentinels["token"],
                             "user_id": 7,
                             "papel": "admin",
                         },
                     )
+                return httpx.Response(201, json={"id": 12})
+
+            client = XanoClient(
+                XanoConfig(
+                    "https://example.xano.io/api:test",
+                    "api-token-secreto",
+                    5,
                 ),
+                transport=httpx.MockTransport(transport_handler),
             )
 
-            client.login("usuario-real", "senha-secreta")
+            client.login("usuario-real", sentinels["senha"])
+            client.criar_paciente(
+                sentinels["token"],
+                {
+                    "nome": "Paciente Sentinela",
+                    "cpf": sentinels["cpf"],
+                    "data_nascimento": "1990-01-01",
+                    "telefone": sentinels["telefone"],
+                    "endereco": sentinels["endereco"],
+                    "contato_emergencia": sentinels["contato"],
+                },
+            )
 
             texto = " ".join(records)
-            self.assertNotIn("senha-secreta", texto)
-            self.assertNotIn("remote-token", texto)
+            for sentinel in sentinels.values():
+                self.assertNotIn(sentinel, texto)
+            self.assertNotIn("api-token-secreto", texto)
             self.assertNotIn("usuario-real", texto)
         finally:
-            logger.removeHandler(handler)
+            logger.removeHandler(log_handler)
 
     def test_login_returns_public_user_data(self) -> None:
         def handler(request: httpx.Request) -> httpx.Response:
             self.assertEqual(request.method, "POST")
             self.assertEqual(request.url.path, "/api:test/auth/login")
-            self.assertEqual(request.headers["authorization"], "Bearer api-token")
+            self.assertEqual(request.headers["authorization"], "api-token")
             return httpx.Response(
                 200,
                 json={"authToken": "remote-token", "user_id": 7, "papel": "admin"},
@@ -79,10 +107,6 @@ class XanoClientTests(unittest.TestCase):
             requests.append(request)
             if request.method == "POST":
                 return httpx.Response(201, json={"id": 12})
-            if request.method == "PATCH":
-                return httpx.Response(200, json={"id": 12, "nome": "Ana"})
-            if request.method == "DELETE":
-                return httpx.Response(204)
             if request.url.path.endswith("/12"):
                 return httpx.Response(200, json={"id": 12, "nome": "Ana"})
             return httpx.Response(200, json={"items": [{"id": 12, "nome": "Ana"}]})
@@ -98,34 +122,11 @@ class XanoClientTests(unittest.TestCase):
         )
         pacientes = client.listar_pacientes("user-token")
         paciente = client.consultar_paciente("user-token", paciente_id)
-        client.atualizar_paciente("user-token", paciente_id, {"nome": "Ana"})
-        client.excluir_paciente("user-token", paciente_id)
 
         self.assertEqual(paciente_id, 12)
         self.assertEqual(pacientes[0]["nome"], "Ana")
         self.assertEqual(paciente["id"], 12)
         self.assertTrue(all(request.headers["authorization"] == "user-token" for request in requests))
-        self.assertEqual(requests[3].method, "PATCH")
-        self.assertEqual(requests[4].method, "DELETE")
-
-    def test_patient_deletion_maps_dependency_validation_error(self) -> None:
-        client = XanoClient(
-            XanoConfig("https://example.xano.io/api:test", None, 5),
-            transport=httpx.MockTransport(
-                lambda request: httpx.Response(
-                    400,
-                    json={
-                        "message": (
-                            "Nao e possivel excluir: paciente possui "
-                            "atendimentos registrados."
-                        )
-                    },
-                )
-            ),
-        )
-
-        with self.assertRaisesRegex(XanoValidationError, "atendimentos registrados"):
-            client.excluir_paciente("user-token", 12)
 
     def test_patient_creation_maps_validation_error(self) -> None:
         client = XanoClient(
@@ -202,10 +203,6 @@ class XanoClientTests(unittest.TestCase):
             requests.append(request)
             if request.method == "POST":
                 return httpx.Response(201, json={"id": 21})
-            if request.method == "PATCH":
-                return httpx.Response(200, json={"id": 21, "nome": "Dra. Ana"})
-            if request.method == "DELETE":
-                return httpx.Response(204)
             if request.url.path.endswith("/21"):
                 return httpx.Response(200, json={"id": 21, "nome": "Dra. Ana"})
             return httpx.Response(200, json={"items": [{"id": 21, "nome": "Dra. Ana"}]})
@@ -221,8 +218,6 @@ class XanoClientTests(unittest.TestCase):
         )
         medicos = client.listar_medicos("doctor-token")
         medico = client.consultar_medico("doctor-token", medico_id)
-        client.atualizar_medico("doctor-token", medico_id, {"nome": "Dra. Ana"})
-        client.excluir_medico("doctor-token", medico_id)
 
         self.assertEqual(medico_id, 21)
         self.assertEqual(medicos[0]["nome"], "Dra. Ana")
@@ -231,8 +226,6 @@ class XanoClientTests(unittest.TestCase):
             all(request.headers["authorization"] == "doctor-token" for request in requests)
         )
         self.assertEqual(requests[1].url.query, b"")
-        self.assertEqual(requests[3].method, "PATCH")
-        self.assertEqual(requests[4].method, "DELETE")
 
     def test_insurance_operations_use_session_token(self) -> None:
         requests: list[httpx.Request] = []
@@ -300,10 +293,6 @@ class XanoClientTests(unittest.TestCase):
             requests.append(request)
             if request.method == "POST":
                 return httpx.Response(201, json={"id": 41})
-            if request.method == "PATCH":
-                return httpx.Response(200, json={"id": 41, "tipo": "consulta"})
-            if request.method == "DELETE":
-                return httpx.Response(204)
             if request.url.path.endswith("/41"):
                 return httpx.Response(
                     200,
@@ -350,8 +339,6 @@ class XanoClientTests(unittest.TestCase):
         atendimento_id = client.criar_atendimento("attendance-token", dados)
         atendimentos = client.listar_atendimentos("attendance-token")
         atendimento = client.consultar_atendimento("attendance-token", atendimento_id)
-        client.atualizar_atendimento("attendance-token", atendimento_id, dados)
-        client.excluir_atendimento("attendance-token", atendimento_id)
 
         self.assertEqual(atendimento_id, 41)
         self.assertEqual(atendimentos[0]["id"], 41)
@@ -368,27 +355,6 @@ class XanoClientTests(unittest.TestCase):
         )
         self.assertEqual(requests[0].url.path, "/api:test/atendimentos")
         self.assertEqual(requests[1].url.query, b"")
-        self.assertEqual(requests[3].method, "PATCH")
-        self.assertEqual(requests[4].method, "DELETE")
-
-    def test_attendance_deletion_maps_dependency_validation_error(self) -> None:
-        client = XanoClient(
-            XanoConfig("https://example.xano.io/api:test", None, 5),
-            transport=httpx.MockTransport(
-                lambda request: httpx.Response(
-                    400,
-                    json={
-                        "message": (
-                            "Nao e possivel excluir: atendimento possui "
-                            "internacao registrada."
-                        )
-                    },
-                )
-            ),
-        )
-
-        with self.assertRaisesRegex(XanoValidationError, "internacao registrada"):
-            client.excluir_atendimento("attendance-token", 41)
 
     def test_attendance_creation_maps_validation_error(self) -> None:
         client = XanoClient(

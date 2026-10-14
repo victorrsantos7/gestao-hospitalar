@@ -1,9 +1,25 @@
-input[placeholder] {
+input[placeholder],
+textarea[placeholder] {
   background: #ffffff !important;
   color: #111827 !important;
 }
 
-input[placeholder]::placeholder {
+input[placeholder]::placeholder,
+textarea[placeholder]::placeholder {
   color: #243b53 !important;
+  opacity: 1 !important;
+}
+
+[data-placeholder] .rt-SelectTriggerInner {
+  color: #243b53 !important;
+}
+
+.patient-form-title,
+.patient-details-title {
+  color: #173b61 !important;
+}
+
+.paciente-form-field input::placeholder {
+  color: #7c90a6 !important;
   opacity: 1 !important;
 }

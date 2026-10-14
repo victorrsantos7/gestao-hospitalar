@@ -28,7 +28,7 @@ class AuthStateTransferenciasTests(unittest.TestCase):
         state.usuario_id = 10
         state.papel = "enfermagem_gestao"
         state.internacao_id_transferencia = "71"
-        state.data_transferencia = "2026-10-13"
+        state.data_transferencia = "13/10/2026"
         state.destino_transferencia = "UTI"
         state.motivo_transferencia = "Acompanhamento medico"
         state.internacoes = [{"id": "71", "status": "internado"}]
@@ -63,7 +63,7 @@ class AuthStateTransferenciasTests(unittest.TestCase):
         state.usuario_id = 10
         state.papel = "admin"
         state.internacao_id_transferencia = "71"
-        state.data_transferencia = "2026-10-13"
+        state.data_transferencia = "13/10/2026"
         state.destino_transferencia = "UTI"
         state.motivo_transferencia = "Acompanhamento medico"
         state.internacoes = [{"id": "71", "status": "alta"}]

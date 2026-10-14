@@ -12,7 +12,7 @@ from gestao_hospitalar.internacoes import internacoes
 from gestao_hospitalar.historico import historico
 from gestao_hospitalar.pacientes import pacientes
 
-app = rx.App(stylesheets=["styles.css"])
+app = rx.App(stylesheets=["styles.css"], html_lang="pt-BR")
 app.add_page(login, route="/", title="Login")
 app.add_page(dashboard, route="/dashboard", title="Dashboard", on_load=AuthState.check_auth)
 app.add_page(

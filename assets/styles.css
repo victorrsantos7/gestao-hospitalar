@@ -1,0 +1,9 @@
+input[placeholder] {
+  background: #ffffff !important;
+  color: #111827 !important;
+}
+
+input[placeholder]::placeholder {
+  color: #243b53 !important;
+  opacity: 1 !important;
+}

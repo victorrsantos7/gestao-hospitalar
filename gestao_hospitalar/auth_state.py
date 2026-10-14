@@ -10,6 +10,7 @@ from gestao_hospitalar.authorization import (
     RECURSO_DIAGNOSTICOS,
     RECURSO_INTERNACOES,
     RECURSO_LEITOS,
+    RECURSO_HISTORICO,
     RECURSO_TRANSFERENCIAS,
     RECURSO_MEDICOS,
     RECURSO_PACIENTES,
@@ -47,6 +48,10 @@ from gestao_hospitalar.validacao_transferencias import (
     data_transferencia_valida,
     referencia_transferencia_valida,
     transferencia_texto_valida,
+)
+from gestao_hospitalar.validacao_historico import (
+    normalizar_historico,
+    referencia_historico_valida,
 )
 from gestao_hospitalar.validacao_pacientes import (
     data_nascimento_valida,
@@ -164,6 +169,11 @@ class AuthState(rx.State):
     erro_transferencia: str = ""
     sucesso_transferencia: str = ""
 
+    pacientes_historico: list[dict[str, str]] = []
+    paciente_id_historico: str = ""
+    historico_eventos: list[dict[str, str]] = []
+    erro_historico: str = ""
+
     @rx.var
     def is_authenticated(self) -> bool:
         """Indica se há um usuário autenticado na sessão atual."""
@@ -272,6 +282,21 @@ class AuthState(rx.State):
             and registro.get("status") == "internado"
             for registro in self.internacoes
         )
+
+    @rx.var
+    def pode_ver_historico(self) -> bool:
+        return self._pode_acessar_recurso(RECURSO_HISTORICO)
+
+    @rx.var
+    def possui_historico_eventos(self) -> bool:
+        return bool(self.historico_eventos)
+
+    @rx.var
+    def opcoes_pacientes_historico(self) -> list[str]:
+        return [
+            f"{paciente.get('id', '')} - {paciente.get('nome', '')}"
+            for paciente in self.pacientes_historico
+        ]
 
     @rx.var
     def opcoes_leitos_livres(self) -> list[str]:
@@ -485,6 +510,48 @@ class AuthState(rx.State):
         self.motivo_transferencia = value
 
     @rx.event
+    def set_paciente_id_historico(self, value: str):
+        self.paciente_id_historico = value
+
+    @rx.event
+    def consultar_historico(self):
+        paciente_id = self.paciente_id_historico.split(" - ", 1)[0].strip()
+        self.erro_historico = ""
+        self.historico_eventos = []
+        if not self.pode_ver_historico:
+            self.erro_historico = "Voce nao tem permissao para consultar historico."
+            return
+        if not referencia_historico_valida(paciente_id):
+            self.erro_historico = "Selecione um paciente valido."
+            return
+        try:
+            payload = XanoClient(XanoConfig.from_env()).consultar_historico(
+                self._auth_token,
+                int(paciente_id),
+            )
+        except XanoError:
+            self.erro_historico = "Nao foi possivel carregar o historico."
+            return
+        self.historico_eventos = normalizar_historico(payload)
+
+    @rx.event
+    def carregar_historico(self):
+        if not self.pode_ver_historico:
+            return rx.redirect("/dashboard")
+        self.erro_historico = ""
+        try:
+            registros = XanoClient(XanoConfig.from_env()).listar_pacientes_historico(
+                self._auth_token
+            )
+        except XanoError:
+            self.erro_historico = "Nao foi possivel carregar os pacientes."
+            return
+        self.pacientes_historico = [
+            {chave: "" if valor is None else str(valor) for chave, valor in registro.items()}
+            for registro in registros
+        ]
+
+    @rx.event
     def do_login(self):
         """Valida login e senha e estabelece a sessão em caso de sucesso."""
         logger.info("frontend_event name=do_login")
@@ -596,6 +663,10 @@ class AuthState(rx.State):
         self.motivo_transferencia = ""
         self.erro_transferencia = ""
         self.sucesso_transferencia = ""
+        self.pacientes_historico = []
+        self.paciente_id_historico = ""
+        self.historico_eventos = []
+        self.erro_historico = ""
         return rx.redirect("/")
 
     @rx.event

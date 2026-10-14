@@ -575,6 +575,38 @@ class XanoClientTests(unittest.TestCase):
             "/api:test/internacoes/71/transferencias",
         )
 
+    def test_history_operations_use_session_token_and_contract(self) -> None:
+        requests: list[httpx.Request] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            requests.append(request)
+            if request.url.path.endswith("/opcoes-historico"):
+                return httpx.Response(
+                    200,
+                    json={"items": [{"id": 1, "nome": "Ana Ribeiro"}]},
+                )
+            return httpx.Response(
+                200,
+                json={"paciente": {"id": 1}, "atendimentos": [], "internacoes": []},
+            )
+
+        client = XanoClient(
+            XanoConfig("https://example.xano.io/api:test", None, 5),
+            transport=httpx.MockTransport(handler),
+        )
+
+        pacientes = client.listar_pacientes_historico("history-token")
+        historico = client.consultar_historico("history-token", 1)
+
+        self.assertEqual(pacientes[0]["nome"], "Ana Ribeiro")
+        self.assertEqual(historico["atendimentos"], [])
+        self.assertTrue(
+            all(
+                request.headers["authorization"] == "history-token"
+                for request in requests
+            )
+        )
+
     def test_login_rejects_invalid_credentials(self) -> None:
         client = XanoClient(
             XanoConfig("https://example.xano.io/api:test", None, 5),

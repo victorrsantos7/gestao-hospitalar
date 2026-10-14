@@ -637,3 +637,31 @@ class XanoClient:
         )
         self._raise_for_status(response)
         return self._extract_records(self._json(response))
+
+    def listar_pacientes_historico(
+        self,
+        auth_token: str,
+    ) -> list[dict[str, Any]]:
+        response = self._request(
+            "GET",
+            "/patients/opcoes-historico",
+            auth_token=auth_token,
+        )
+        self._raise_for_status(response)
+        return self._extract_records(self._json(response))
+
+    def consultar_historico(
+        self,
+        auth_token: str,
+        paciente_id: int,
+    ) -> dict[str, Any]:
+        response = self._request(
+            "GET",
+            f"/patients/{paciente_id}/historico",
+            auth_token=auth_token,
+        )
+        self._raise_for_status(response)
+        payload = self._json(response)
+        if not isinstance(payload, dict):
+            raise XanoResponseError("Resposta invalida do Xano.")
+        return payload

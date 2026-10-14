@@ -43,7 +43,11 @@ def formulario_paciente() -> rx.Component:
     return rx.card(
         rx.vstack(
             rx.heading(
-                "Cadastrar paciente",
+                rx.cond(
+                    AuthState.editando_paciente,
+                    "Editar paciente",
+                    "Cadastrar paciente",
+                ),
                 size="5",
                 color="#173b61",
                 class_name="patient-form-title",
@@ -121,10 +125,21 @@ def formulario_paciente() -> rx.Component:
                 rx.text(AuthState.sucesso_paciente, color="green"),
             ),
             rx.center(
-                rx.button(
-                    "Cadastrar",
-                    on_click=AuthState.criar_paciente,
-                    style=_BOTAO_COMPACTO,
+                rx.hstack(
+                    rx.button(
+                        rx.cond(AuthState.editando_paciente, "Atualizar", "Cadastrar"),
+                        on_click=AuthState.salvar_paciente,
+                        style=_BOTAO_COMPACTO,
+                    ),
+                    rx.cond(
+                        AuthState.editando_paciente,
+                        rx.button(
+                            "Cancelar",
+                            on_click=AuthState.cancelar_edicao_paciente,
+                            style=_BOTAO_COMPACTO,
+                            variant="soft",
+                        ),
+                    ),
                 ),
                 width="100%",
             ),
@@ -150,10 +165,38 @@ def linha_paciente(paciente: dict[str, str]) -> rx.Component:
                     align="start",
                     flex="1",
                 ),
-                rx.button(
-                    "Ver detalhes",
-                    on_click=AuthState.consultar_paciente(paciente["id"]),
-                    style=_BOTAO_COMPACTO,
+                rx.vstack(
+                    rx.button(
+                        "Ver detalhes",
+                        on_click=AuthState.consultar_paciente(paciente["id"]),
+                        style=_BOTAO_COMPACTO,
+                    ),
+                    rx.cond(
+                        AuthState.pode_cadastrar_pacientes,
+                        rx.hstack(
+                            rx.icon_button(
+                                rx.icon("pencil", size=16),
+                                on_click=AuthState.editar_paciente(paciente["id"]),
+                                variant="soft",
+                                size="2",
+                                radius="full",
+                                title="Editar",
+                            ),
+                            rx.icon_button(
+                                rx.icon("trash-2", size=16),
+                                on_click=AuthState.excluir_paciente(paciente["id"]),
+                                variant="soft",
+                                color_scheme="red",
+                                size="2",
+                                radius="full",
+                                title="Excluir",
+                            ),
+                            spacing="2",
+                            justify="center",
+                        ),
+                    ),
+                    spacing="2",
+                    align="stretch",
                 ),
                 width="100%",
                 align="center",

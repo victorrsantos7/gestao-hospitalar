@@ -5,6 +5,15 @@ from datetime import date
 
 TIPOS_ATENDIMENTO = ("consulta", "emergencia", "retorno")
 
+# Rótulos acentuados usados apenas para exibição na interface; os valores
+# salvos e validados continuam sendo os de TIPOS_ATENDIMENTO (compatíveis
+# com o enum cadastrado no Xano).
+ROTULOS_TIPO_ATENDIMENTO = {
+    "consulta": "Consulta",
+    "emergencia": "Emergência",
+    "retorno": "Retorno",
+}
+
 
 def tipo_atendimento_valido(tipo: str) -> bool:
     """Indica se o tipo pertence ao conjunto aceito pelo sistema."""

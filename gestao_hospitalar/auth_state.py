@@ -24,7 +24,11 @@ from gestao_hospitalar.relatorios_calculo import (
 )
 from gestao_hospitalar.crm import crm_valido, formatar_crm, normalizar_crm
 from gestao_hospitalar.cpf import cpf_valido, normalizar_cpf
-from gestao_hospitalar.data_br import data_br_para_iso, formatar_data_br
+from gestao_hospitalar.data_br import (
+    data_br_para_iso,
+    data_iso_para_br,
+    formatar_data_br,
+)
 from gestao_hospitalar.logging_config import get_logger
 from gestao_hospitalar.validacao_convenios import (
     TIPOS_CONVENIO,
@@ -33,7 +37,6 @@ from gestao_hospitalar.validacao_convenios import (
     tipo_convenio_valido,
 )
 from gestao_hospitalar.validacao_atendimentos import (
-    TIPOS_ATENDIMENTO,
     data_atendimento_valida,
     motivo_atendimento_valido,
     referencia_atendimento_valida,
@@ -106,6 +109,7 @@ class AuthState(rx.State):
 
     pacientes: list[dict[str, str]] = []
     paciente_selecionado: dict[str, str] = {}
+    id_paciente_edicao: str = ""
     nome_paciente: str = ""
     cpf_paciente: str = ""
     nascimento_paciente: str = ""
@@ -117,6 +121,7 @@ class AuthState(rx.State):
 
     medicos: list[dict[str, str]] = []
     medico_selecionado: dict[str, str] = {}
+    id_medico_edicao: str = ""
     nome_medico: str = ""
     crm_medico: str = ""
     especialidade_medico: str = ""
@@ -135,6 +140,7 @@ class AuthState(rx.State):
 
     atendimentos: list[dict[str, str]] = []
     atendimento_selecionado: dict[str, str] = {}
+    id_atendimento_edicao: str = ""
     paciente_id_atendimento: str = ""
     medico_id_atendimento: str = ""
     convenio_id_atendimento: str = ""
@@ -342,10 +348,6 @@ class AuthState(rx.State):
         ]
 
     @rx.var
-    def tipos_atendimento(self) -> list[str]:
-        return list(TIPOS_ATENDIMENTO)
-
-    @rx.var
     def opcoes_pacientes_atendimento(self) -> list[str]:
         return [
             f"{paciente.get('id', '')} - {paciente.get('nome', '')}"
@@ -377,6 +379,18 @@ class AuthState(rx.State):
     @rx.var
     def editando_convenio(self) -> bool:
         return bool(self.id_convenio_edicao)
+
+    @rx.var
+    def editando_paciente(self) -> bool:
+        return bool(self.id_paciente_edicao)
+
+    @rx.var
+    def editando_medico(self) -> bool:
+        return bool(self.id_medico_edicao)
+
+    @rx.var
+    def editando_atendimento(self) -> bool:
+        return bool(self.id_atendimento_edicao)
 
     @rx.var
     def tipos_convenio(self) -> list[str]:
@@ -630,6 +644,7 @@ class AuthState(rx.State):
         ) = valores_sessao_encerrada()
         self.pacientes = []
         self.paciente_selecionado = {}
+        self.id_paciente_edicao = ""
         self.nome_paciente = ""
         self.cpf_paciente = ""
         self.nascimento_paciente = ""
@@ -640,6 +655,7 @@ class AuthState(rx.State):
         self.sucesso_paciente = ""
         self.medicos = []
         self.medico_selecionado = {}
+        self.id_medico_edicao = ""
         self.nome_medico = ""
         self.crm_medico = ""
         self.especialidade_medico = ""
@@ -656,6 +672,7 @@ class AuthState(rx.State):
         self.sucesso_convenio = ""
         self.atendimentos = []
         self.atendimento_selecionado = {}
+        self.id_atendimento_edicao = ""
         self.paciente_id_atendimento = ""
         self.medico_id_atendimento = ""
         self.convenio_id_atendimento = ""
@@ -800,8 +817,33 @@ class AuthState(rx.State):
         }
 
     @rx.event
-    def criar_medico(self):
-        """Valida e cria um medico para recepcionista ou admin."""
+    def editar_medico(self, medico_id: str):
+        """Preenche o formulario com os dados do medico para edicao."""
+        try:
+            registro = next(
+                medico for medico in self.medicos
+                if medico.get("id") == str(medico_id)
+            )
+        except StopIteration:
+            self.erro_medico = "Não foi possível editar o médico."
+            return
+        self.id_medico_edicao = str(medico_id)
+        self.nome_medico = registro.get("nome", "")
+        self.crm_medico = formatar_crm(registro.get("crm", ""))
+        self.especialidade_medico = registro.get("especialidade", "")
+        self.telefone_medico = formatar_telefone(registro.get("telefone", ""))
+
+    @rx.event
+    def cancelar_edicao_medico(self):
+        self.id_medico_edicao = ""
+        self.nome_medico = ""
+        self.crm_medico = ""
+        self.especialidade_medico = ""
+        self.telefone_medico = ""
+
+    @rx.event
+    def salvar_medico(self):
+        """Valida e cria ou atualiza um medico para recepcionista ou admin."""
         self.erro_medico = ""
         self.sucesso_medico = ""
         if not pode_acessar(self.is_authenticated, self.papel, RECURSO_MEDICOS):
@@ -839,34 +881,64 @@ class AuthState(rx.State):
             self.erro_medico = "Não foi possível validar o CRM."
             return
         if any(
-            normalizar_crm(str(medico.get("crm", ""))) == crm
+            str(medico.get("id")) != self.id_medico_edicao
+            and normalizar_crm(str(medico.get("crm", ""))) == crm
             for medico in medicos_existentes
         ):
             self.erro_medico = "O CRM já está cadastrado."
             return
 
+        dados = {
+            "nome": nome,
+            "crm": crm,
+            "especialidade": self.especialidade_medico.strip(),
+            "telefone": telefone,
+        }
         try:
-            medico_id = XanoClient(XanoConfig.from_env()).criar_medico(
-                self._auth_token,
-                {
-                    "nome": nome,
-                    "crm": crm,
-                    "especialidade": self.especialidade_medico.strip(),
-                    "telefone": telefone,
-                },
-            )
+            cliente = XanoClient(XanoConfig.from_env())
+            if self.id_medico_edicao:
+                cliente.atualizar_medico(
+                    self._auth_token,
+                    int(self.id_medico_edicao),
+                    dados,
+                )
+                mensagem = "Médico atualizado."
+            else:
+                medico_id = cliente.criar_medico(self._auth_token, dados)
+                mensagem = f"Médico cadastrado (#{medico_id})."
         except XanoValidationError:
             self.erro_medico = "O CRM já está cadastrado."
             return
         except XanoError:
-            self.erro_medico = "Não foi possível cadastrar o médico."
+            self.erro_medico = "Não foi possível salvar o médico."
             return
 
-        self.sucesso_medico = f"Médico cadastrado (#{medico_id})."
-        self.nome_medico = ""
-        self.crm_medico = ""
-        self.especialidade_medico = ""
-        self.telefone_medico = ""
+        self.sucesso_medico = mensagem
+        self.cancelar_edicao_medico()
+        self._carregar_medicos()
+
+    @rx.event
+    def excluir_medico(self, medico_id: str):
+        self.erro_medico = ""
+        self.sucesso_medico = ""
+        if not pode_acessar(self.is_authenticated, self.papel, RECURSO_MEDICOS):
+            self.erro_medico = "Você não tem permissão para excluir médicos."
+            return
+        try:
+            XanoClient(XanoConfig.from_env()).excluir_medico(
+                self._auth_token,
+                int(medico_id),
+            )
+        except XanoValidationError as error:
+            self.erro_medico = str(error)
+            return
+        except (ValueError, XanoError):
+            self.erro_medico = "Não foi possível excluir o médico."
+            return
+        self.sucesso_medico = "Médico excluído."
+        self.medico_selecionado = {}
+        if self.id_medico_edicao == str(medico_id):
+            self.cancelar_edicao_medico()
         self._carregar_medicos()
 
     @rx.event
@@ -1460,8 +1532,52 @@ class AuthState(rx.State):
         self._carregar_transferencias(self.internacao_id_transferencia)
 
     @rx.event
-    def criar_atendimento(self):
-        """Valida e cria atendimento para recepcionista ou admin."""
+    def editar_atendimento(self, atendimento_id: str):
+        """Preenche o formulario com os dados do atendimento para edicao."""
+        try:
+            registro = next(
+                atendimento for atendimento in self.atendimentos
+                if atendimento.get("id") == str(atendimento_id)
+            )
+        except StopIteration:
+            self.erro_atendimento = "Não foi possível editar o atendimento."
+            return
+        self.id_atendimento_edicao = str(atendimento_id)
+        paciente_id = registro.get("paciente_id", "")
+        medico_id = registro.get("medico_id", "")
+        convenio_id = registro.get("convenio_id", "")
+        self.paciente_id_atendimento = (
+            f"{paciente_id} - {registro.get('paciente_nome', '')}"
+            if paciente_id
+            else ""
+        )
+        self.medico_id_atendimento = (
+            f"{medico_id} - {registro.get('medico_nome', '')}"
+            if medico_id
+            else ""
+        )
+        self.convenio_id_atendimento = (
+            f"{convenio_id} - {registro.get('convenio_nome', '')}"
+            if convenio_id and convenio_id != "None"
+            else ""
+        )
+        self.data_atendimento = data_iso_para_br(registro.get("data_atendimento", ""))
+        self.motivo_atendimento = registro.get("motivo", "")
+        self.tipo_atendimento = registro.get("tipo", "")
+
+    @rx.event
+    def cancelar_edicao_atendimento(self):
+        self.id_atendimento_edicao = ""
+        self.paciente_id_atendimento = ""
+        self.medico_id_atendimento = ""
+        self.convenio_id_atendimento = ""
+        self.data_atendimento = ""
+        self.motivo_atendimento = ""
+        self.tipo_atendimento = ""
+
+    @rx.event
+    def salvar_atendimento(self):
+        """Valida e cria ou atualiza um atendimento para recepcionista ou admin."""
         self.erro_atendimento = ""
         self.sucesso_atendimento = ""
         if not self.pode_cadastrar_atendimentos:
@@ -1511,24 +1627,53 @@ class AuthState(rx.State):
             "tipo": self.tipo_atendimento,
         }
         try:
-            atendimento_id = XanoClient(XanoConfig.from_env()).criar_atendimento(
-                self._auth_token,
-                dados,
-            )
+            cliente = XanoClient(XanoConfig.from_env())
+            if self.id_atendimento_edicao:
+                cliente.atualizar_atendimento(
+                    self._auth_token,
+                    int(self.id_atendimento_edicao),
+                    dados,
+                )
+                mensagem = "Atendimento atualizado."
+            else:
+                atendimento_id = cliente.criar_atendimento(self._auth_token, dados)
+                mensagem = f"Atendimento cadastrado (#{atendimento_id})."
         except XanoValidationError:
             self.erro_atendimento = "As referências do atendimento são inválidas."
             return
         except XanoError:
-            self.erro_atendimento = "Não foi possível cadastrar o atendimento."
+            self.erro_atendimento = "Não foi possível salvar o atendimento."
             return
 
-        self.sucesso_atendimento = f"Atendimento cadastrado (#{atendimento_id})."
-        self.paciente_id_atendimento = ""
-        self.medico_id_atendimento = ""
-        self.convenio_id_atendimento = ""
-        self.data_atendimento = ""
-        self.motivo_atendimento = ""
-        self.tipo_atendimento = ""
+        self.sucesso_atendimento = mensagem
+        self.cancelar_edicao_atendimento()
+        self._carregar_atendimentos()
+
+    @rx.event
+    def excluir_atendimento(self, atendimento_id: str):
+        self.erro_atendimento = ""
+        self.sucesso_atendimento = ""
+        if not self.pode_cadastrar_atendimentos:
+            self.erro_atendimento = (
+                "Você não tem permissão para excluir atendimentos."
+            )
+            return
+        try:
+            XanoClient(XanoConfig.from_env()).excluir_atendimento(
+                self._auth_token,
+                int(atendimento_id),
+            )
+        except XanoValidationError as error:
+            self.erro_atendimento = str(error)
+            return
+        except (ValueError, XanoError):
+            self.erro_atendimento = "Não foi possível excluir o atendimento."
+            return
+        self.sucesso_atendimento = "Atendimento excluído."
+        if self.atendimento_selecionado.get("id") == str(atendimento_id):
+            self.atendimento_selecionado = {}
+        if self.id_atendimento_edicao == str(atendimento_id):
+            self.cancelar_edicao_atendimento()
         self._carregar_atendimentos()
 
     @rx.event
@@ -1553,8 +1698,41 @@ class AuthState(rx.State):
         }
 
     @rx.event
-    def criar_paciente(self):
-        """Valida e cria um paciente para recepcionista ou admin."""
+    def editar_paciente(self, paciente_id: str):
+        """Preenche o formulario com os dados do paciente para edicao."""
+        try:
+            registro = next(
+                paciente for paciente in self.pacientes
+                if paciente.get("id") == str(paciente_id)
+            )
+        except StopIteration:
+            self.erro_paciente = "Não foi possível editar o paciente."
+            return
+        self.id_paciente_edicao = str(paciente_id)
+        self.nome_paciente = registro.get("nome", "")
+        self.cpf_paciente = formatar_cpf(registro.get("cpf", ""))
+        self.nascimento_paciente = data_iso_para_br(
+            registro.get("data_nascimento", "")
+        )
+        self.telefone_paciente = formatar_telefone(registro.get("telefone", ""))
+        self.endereco_paciente = registro.get("endereco", "")
+        self.emergencia_paciente = formatar_telefone(
+            registro.get("contato_emergencia", "")
+        )
+
+    @rx.event
+    def cancelar_edicao_paciente(self):
+        self.id_paciente_edicao = ""
+        self.nome_paciente = ""
+        self.cpf_paciente = ""
+        self.nascimento_paciente = ""
+        self.telefone_paciente = ""
+        self.endereco_paciente = ""
+        self.emergencia_paciente = ""
+
+    @rx.event
+    def salvar_paciente(self):
+        """Valida e cria ou atualiza um paciente para recepcionista ou admin."""
         self.erro_paciente = ""
         self.sucesso_paciente = ""
         if not self.is_authenticated or not tem_permissao(
@@ -1601,31 +1779,73 @@ class AuthState(rx.State):
             return
 
         try:
-            paciente_id = XanoClient(XanoConfig.from_env()).criar_paciente(
-                self._auth_token,
-                {
-                    "nome": nome,
-                    "cpf": cpf,
-                    "data_nascimento": data_br_para_iso(self.nascimento_paciente),
-                    "telefone": telefone,
-                    "endereco": self.endereco_paciente.strip(),
-                    "contato_emergencia": contato_emergencia,
-                },
+            existentes = XanoClient(XanoConfig.from_env()).listar_pacientes(
+                self._auth_token
             )
+        except XanoError:
+            self.erro_paciente = "Não foi possível validar o CPF."
+            return
+        if any(
+            str(paciente.get("id")) != self.id_paciente_edicao
+            and normalizar_cpf(str(paciente.get("cpf", ""))) == cpf
+            for paciente in existentes
+        ):
+            self.erro_paciente = "O CPF já está cadastrado."
+            return
+
+        dados = {
+            "nome": nome,
+            "cpf": cpf,
+            "data_nascimento": data_br_para_iso(self.nascimento_paciente),
+            "telefone": telefone,
+            "endereco": self.endereco_paciente.strip(),
+            "contato_emergencia": contato_emergencia,
+        }
+        try:
+            cliente = XanoClient(XanoConfig.from_env())
+            if self.id_paciente_edicao:
+                cliente.atualizar_paciente(
+                    self._auth_token,
+                    int(self.id_paciente_edicao),
+                    dados,
+                )
+                mensagem = "Paciente atualizado."
+            else:
+                paciente_id = cliente.criar_paciente(self._auth_token, dados)
+                mensagem = f"Paciente cadastrado (#{paciente_id})."
         except XanoValidationError:
             self.erro_paciente = "O CPF já está cadastrado."
             return
         except XanoError:
-            self.erro_paciente = "Não foi possível cadastrar o paciente."
+            self.erro_paciente = "Não foi possível salvar o paciente."
             return
 
-        self.sucesso_paciente = f"Paciente cadastrado (#{paciente_id})."
-        self.nome_paciente = ""
-        self.cpf_paciente = ""
-        self.nascimento_paciente = ""
-        self.telefone_paciente = ""
-        self.endereco_paciente = ""
-        self.emergencia_paciente = ""
+        self.sucesso_paciente = mensagem
+        self.cancelar_edicao_paciente()
+        self._carregar_pacientes()
+
+    @rx.event
+    def excluir_paciente(self, paciente_id: str):
+        self.erro_paciente = ""
+        self.sucesso_paciente = ""
+        if not tem_permissao(self.papel, RECURSO_CADASTRO_PACIENTES):
+            self.erro_paciente = "Você não tem permissão para excluir pacientes."
+            return
+        try:
+            XanoClient(XanoConfig.from_env()).excluir_paciente(
+                self._auth_token,
+                int(paciente_id),
+            )
+        except XanoValidationError as error:
+            self.erro_paciente = str(error)
+            return
+        except (ValueError, XanoError):
+            self.erro_paciente = "Não foi possível excluir o paciente."
+            return
+        self.sucesso_paciente = "Paciente excluído."
+        self.paciente_selecionado = {}
+        if self.id_paciente_edicao == str(paciente_id):
+            self.cancelar_edicao_paciente()
         self._carregar_pacientes()
 
     @rx.event

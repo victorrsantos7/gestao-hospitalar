@@ -9,7 +9,11 @@ from gestao_hospitalar.estilos import BOTAO_COMPACTO as _BOTAO_COMPACTO
 def formulario_medico() -> rx.Component:
     return rx.card(
         rx.vstack(
-            rx.heading("Cadastrar médico", size="5", color="#000000"),
+            rx.heading(
+                rx.cond(AuthState.editando_medico, "Editar médico", "Cadastrar médico"),
+                size="5",
+                color="#000000",
+            ),
             rx.input(
                 placeholder="Nome completo",
                 value=AuthState.nome_medico,
@@ -48,7 +52,22 @@ def formulario_medico() -> rx.Component:
                 rx.text(AuthState.sucesso_medico, color="green"),
             ),
             rx.center(
-                rx.button("Cadastrar", on_click=AuthState.criar_medico, style=_BOTAO_COMPACTO),
+                rx.hstack(
+                    rx.button(
+                        rx.cond(AuthState.editando_medico, "Atualizar", "Cadastrar"),
+                        on_click=AuthState.salvar_medico,
+                        style=_BOTAO_COMPACTO,
+                    ),
+                    rx.cond(
+                        AuthState.editando_medico,
+                        rx.button(
+                            "Cancelar",
+                            on_click=AuthState.cancelar_edicao_medico,
+                            style=_BOTAO_COMPACTO,
+                            variant="soft",
+                        ),
+                    ),
+                ),
                 width="100%",
             ),
             spacing="3",
@@ -73,10 +92,38 @@ def linha_medico(medico: dict[str, str]) -> rx.Component:
                     align="start",
                     flex="1",
                 ),
-                rx.button(
-                    "Ver detalhes",
-                    on_click=AuthState.consultar_medico(medico["id"]),
-                    style=_BOTAO_COMPACTO,
+                rx.vstack(
+                    rx.button(
+                        "Ver detalhes",
+                        on_click=AuthState.consultar_medico(medico["id"]),
+                        style=_BOTAO_COMPACTO,
+                    ),
+                    rx.cond(
+                        AuthState.pode_cadastrar_medicos,
+                        rx.hstack(
+                            rx.icon_button(
+                                rx.icon("pencil", size=16),
+                                on_click=AuthState.editar_medico(medico["id"]),
+                                variant="soft",
+                                size="2",
+                                radius="full",
+                                title="Editar",
+                            ),
+                            rx.icon_button(
+                                rx.icon("trash-2", size=16),
+                                on_click=AuthState.excluir_medico(medico["id"]),
+                                variant="soft",
+                                color_scheme="red",
+                                size="2",
+                                radius="full",
+                                title="Excluir",
+                            ),
+                            spacing="2",
+                            justify="center",
+                        ),
+                    ),
+                    spacing="2",
+                    align="stretch",
                 ),
                 width="100%",
                 align="center",

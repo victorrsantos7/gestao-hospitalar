@@ -4,6 +4,7 @@ import reflex as rx
 
 from gestao_hospitalar.auth_state import AuthState
 from gestao_hospitalar.estilos import BOTAO_COMPACTO as _BOTAO_COMPACTO
+from gestao_hospitalar.validacao_atendimentos import ROTULOS_TIPO_ATENDIMENTO
 
 
 def _select_atendimento(
@@ -11,9 +12,7 @@ def _select_atendimento(
     valor,
     on_change,
     placeholder: str,
-    capitalizar: bool = False,
 ) -> rx.Component:
-    item_style = {"textTransform": "capitalize"} if capitalizar else {}
     return rx.select.root(
         rx.select.trigger(
             placeholder=placeholder,
@@ -22,17 +21,15 @@ def _select_atendimento(
                 "backgroundColor": "white",
                 "color": "#000000",
                 "border": "1px solid #d7dee6",
-                "textTransform": "capitalize" if capitalizar else "none",
                 "&[data-placeholder] .rt-SelectTriggerInner": {
                     "color": "#243b53 !important",
-                    "textTransform": "none",
                 },
             },
         ),
         rx.select.content(
             rx.foreach(
                 opcoes,
-                lambda opcao: rx.select.item(opcao, value=opcao, style=item_style),
+                lambda opcao: rx.select.item(opcao, value=opcao),
             ),
         ),
         value=valor,
@@ -40,10 +37,51 @@ def _select_atendimento(
     )
 
 
+def _select_tipo_atendimento() -> rx.Component:
+    return rx.select.root(
+        rx.select.trigger(
+            placeholder="Tipo de atendimento",
+            width="100%",
+            style={
+                "backgroundColor": "white",
+                "color": "#000000",
+                "border": "1px solid #d7dee6",
+                "&[data-placeholder] .rt-SelectTriggerInner": {
+                    "color": "#243b53 !important",
+                },
+            },
+        ),
+        rx.select.content(
+            *(
+                rx.select.item(rotulo, value=valor)
+                for valor, rotulo in ROTULOS_TIPO_ATENDIMENTO.items()
+            ),
+        ),
+        value=AuthState.tipo_atendimento,
+        on_change=AuthState.set_tipo_atendimento,
+    )
+
+
+def _rotulo_tipo_atendimento(tipo) -> rx.Component:
+    return rx.match(
+        tipo,
+        *((valor, rotulo) for valor, rotulo in ROTULOS_TIPO_ATENDIMENTO.items()),
+        tipo,
+    )
+
+
 def formulario_atendimento() -> rx.Component:
     return rx.card(
         rx.vstack(
-            rx.heading("Cadastrar atendimento", size="5", color="#000000"),
+            rx.heading(
+                rx.cond(
+                    AuthState.editando_atendimento,
+                    "Editar atendimento",
+                    "Cadastrar atendimento",
+                ),
+                size="5",
+                color="#000000",
+            ),
             _select_atendimento(
                 AuthState.opcoes_pacientes_atendimento,
                 AuthState.paciente_id_atendimento,
@@ -84,22 +122,31 @@ def formulario_atendimento() -> rx.Component:
                     "border": "1px solid #d7dee6",
                 },
             ),
-            _select_atendimento(
-                AuthState.tipos_atendimento,
-                AuthState.tipo_atendimento,
-                AuthState.set_tipo_atendimento,
-                "Tipo de atendimento",
-                capitalizar=True,
-            ),
+            _select_tipo_atendimento(),
             rx.cond(
                 AuthState.sucesso_atendimento != "",
                 rx.text(AuthState.sucesso_atendimento, color="green"),
             ),
             rx.center(
-                rx.button(
-                    "Cadastrar",
-                    on_click=AuthState.criar_atendimento,
-                    style=_BOTAO_COMPACTO,
+                rx.hstack(
+                    rx.button(
+                        rx.cond(
+                            AuthState.editando_atendimento,
+                            "Atualizar",
+                            "Cadastrar",
+                        ),
+                        on_click=AuthState.salvar_atendimento,
+                        style=_BOTAO_COMPACTO,
+                    ),
+                    rx.cond(
+                        AuthState.editando_atendimento,
+                        rx.button(
+                            "Cancelar",
+                            on_click=AuthState.cancelar_edicao_atendimento,
+                            style=_BOTAO_COMPACTO,
+                            variant="soft",
+                        ),
+                    ),
                 ),
                 width="100%",
             ),
@@ -132,17 +179,44 @@ def linha_atendimento(atendimento: dict[str, str]) -> rx.Component:
                     rx.text("Data: ", atendimento["data_atendimento"], color="#000000"),
                     rx.text(
                         "Tipo: ",
-                        atendimento["tipo"],
+                        _rotulo_tipo_atendimento(atendimento["tipo"]),
                         color="#000000",
-                        style={"textTransform": "capitalize"},
                     ),
                     align="start",
                     flex="1",
                 ),
-                rx.button(
-                    "Ver detalhes",
-                    on_click=AuthState.consultar_atendimento(atendimento["id"]),
-                    style=_BOTAO_COMPACTO,
+                rx.vstack(
+                    rx.button(
+                        "Ver detalhes",
+                        on_click=AuthState.consultar_atendimento(atendimento["id"]),
+                        style=_BOTAO_COMPACTO,
+                    ),
+                    rx.cond(
+                        AuthState.pode_cadastrar_atendimentos,
+                        rx.hstack(
+                            rx.icon_button(
+                                rx.icon("pencil", size=16),
+                                on_click=AuthState.editar_atendimento(atendimento["id"]),
+                                variant="soft",
+                                size="2",
+                                radius="full",
+                                title="Editar",
+                            ),
+                            rx.icon_button(
+                                rx.icon("trash-2", size=16),
+                                on_click=AuthState.excluir_atendimento(atendimento["id"]),
+                                variant="soft",
+                                color_scheme="red",
+                                size="2",
+                                radius="full",
+                                title="Excluir",
+                            ),
+                            spacing="2",
+                            justify="center",
+                        ),
+                    ),
+                    spacing="2",
+                    align="stretch",
                 ),
                 width="100%",
                 align="center",
@@ -275,9 +349,8 @@ def detalhe_atendimento() -> rx.Component:
                 ),
                 rx.text(
                     "Tipo: ",
-                    AuthState.atendimento_selecionado["tipo"],
+                    _rotulo_tipo_atendimento(AuthState.atendimento_selecionado["tipo"]),
                     color="#000000",
-                    style={"textTransform": "capitalize"},
                 ),
                 rx.text("Motivo: ", AuthState.atendimento_selecionado["motivo"], color="#000000"),
                 diagnosticos_atendimento(),

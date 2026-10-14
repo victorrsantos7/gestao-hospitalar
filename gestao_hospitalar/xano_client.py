@@ -278,6 +278,32 @@ class XanoClient:
             raise XanoResponseError("Resposta invalida do Xano.")
         return payload
 
+    def atualizar_medico(
+        self,
+        auth_token: str,
+        medico_id: int,
+        dados: dict[str, str],
+    ) -> None:
+        response = self._request(
+            "PATCH",
+            f"/doctors/{medico_id}",
+            auth_token=auth_token,
+            json=dados,
+        )
+        self._raise_for_status(response)
+
+    def excluir_medico(
+        self,
+        auth_token: str,
+        medico_id: int,
+    ) -> None:
+        response = self._request(
+            "DELETE",
+            f"/doctors/{medico_id}",
+            auth_token=auth_token,
+        )
+        self._raise_for_status(response)
+
     def criar_convenio(
         self,
         auth_token: str,
@@ -392,6 +418,32 @@ class XanoClient:
             raise XanoResponseError("Resposta invalida do Xano.")
         return payload
 
+    def atualizar_paciente(
+        self,
+        auth_token: str,
+        paciente_id: int,
+        dados: dict[str, str],
+    ) -> None:
+        response = self._request(
+            "PATCH",
+            f"/patients/{paciente_id}",
+            auth_token=auth_token,
+            json=dados,
+        )
+        self._raise_for_status(response)
+
+    def excluir_paciente(
+        self,
+        auth_token: str,
+        paciente_id: int,
+    ) -> None:
+        response = self._request(
+            "DELETE",
+            f"/patients/{paciente_id}",
+            auth_token=auth_token,
+        )
+        self._raise_for_status(response)
+
     def criar_atendimento(
         self,
         auth_token: str,
@@ -467,6 +519,32 @@ class XanoClient:
         if not isinstance(payload, dict):
             raise XanoResponseError("Resposta invalida do Xano.")
         return self._normalizar_atendimento(payload)
+
+    def atualizar_atendimento(
+        self,
+        auth_token: str,
+        atendimento_id: int,
+        dados: dict[str, Any],
+    ) -> None:
+        response = self._request(
+            "PATCH",
+            f"/atendimentos/{atendimento_id}",
+            auth_token=auth_token,
+            json=dados,
+        )
+        self._raise_for_status(response)
+
+    def excluir_atendimento(
+        self,
+        auth_token: str,
+        atendimento_id: int,
+    ) -> None:
+        response = self._request(
+            "DELETE",
+            f"/atendimentos/{atendimento_id}",
+            auth_token=auth_token,
+        )
+        self._raise_for_status(response)
 
     def listar_atendimentos_internaveis(
         self,

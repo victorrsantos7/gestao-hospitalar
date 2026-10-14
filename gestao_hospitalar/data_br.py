@@ -34,3 +34,11 @@ def data_br_para_iso(valor: str) -> str:
         return ""
     dia, mes, ano = valor.split("/")
     return f"{ano}-{mes}-{dia}"
+
+
+def data_iso_para_br(valor: str) -> str:
+    """Converte aaaa-mm-dd para dd/mm/aaaa; retorna "" se incompleta/invalida."""
+    if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", valor or ""):
+        return ""
+    ano, mes, dia = valor.split("-")
+    return f"{dia}/{mes}/{ano}"

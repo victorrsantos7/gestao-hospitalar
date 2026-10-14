@@ -323,7 +323,7 @@ def diagnosticos_atendimento() -> rx.Component:
             rx.cond(
                 AuthState.possui_diagnosticos,
                 rx.foreach(AuthState.diagnosticos, linha_diagnostico),
-                    rx.text("Nenhum diagnóstico encontrado."),
+                rx.text("Nenhum diagnóstico encontrado.", color="#52677d"),
             ),
             formulario_diagnostico(),
             align="start",

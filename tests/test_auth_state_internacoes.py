@@ -22,7 +22,7 @@ class AuthStateInternacoesTests(unittest.TestCase):
 
         state.criar_leito()
 
-        self.assertIn("permissao", state.erro_leito)
+        self.assertIn("permissão", state.erro_leito)
 
     def test_medico_cannot_create_admission(self) -> None:
         state = self._state()
@@ -36,7 +36,7 @@ class AuthStateInternacoesTests(unittest.TestCase):
 
         state.criar_internacao()
 
-        self.assertIn("permissao", state.erro_internacao)
+        self.assertIn("permissão", state.erro_internacao)
 
     def test_nursing_user_creates_bed_as_free(self) -> None:
         state = self._state()
@@ -154,7 +154,7 @@ class AuthStateInternacoesTests(unittest.TestCase):
         with patch("gestao_hospitalar.auth_state.XanoClient") as client_class:
             state.registrar_alta()
 
-        self.assertIn("data de saida", state.erro_internacao)
+        self.assertIn("data de saída", state.erro_internacao)
         client_class.assert_not_called()
 
     def test_valid_discharge_releases_bed_in_state(self) -> None:

@@ -1,4 +1,4 @@
-"""Validacoes dos dados de atendimento."""
+"""Validações dos dados de atendimento."""
 
 from datetime import date
 

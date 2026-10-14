@@ -37,9 +37,9 @@ def normalizar_historico(payload: dict[str, Any]) -> list[dict[str, str]]:
         for diagnostico in atendimento.get("diagnosticos") or []:
             eventos.append(
                 {
-                    "tipo": "diagnostico",
+                    "tipo": "diagnóstico",
                     "data": str(diagnostico.get("data_diagnostico", data)),
-                    "titulo": "Diagnostico",
+                    "titulo": "Diagnóstico",
                     "detalhes": str(diagnostico.get("descricao", "")),
                 }
             )
@@ -47,18 +47,18 @@ def normalizar_historico(payload: dict[str, Any]) -> list[dict[str, str]]:
         entrada = str(internacao.get("data_entrada", ""))
         eventos.append(
             {
-                "tipo": "internacao",
+                "tipo": "internação",
                 "data": entrada,
-                "titulo": f"Internacao - {internacao.get('status', '')}",
+                "titulo": f"Internação - {internacao.get('status', '')}",
                 "detalhes": f"Leito {internacao.get('leito_id', '')}",
             }
         )
         for transferencia in internacao.get("transferencias") or []:
             eventos.append(
                 {
-                    "tipo": "transferencia",
+                    "tipo": "transferência",
                     "data": str(transferencia.get("data_transferencia", entrada)),
-                    "titulo": f"Transferencia - {transferencia.get('destino', '')}",
+                    "titulo": f"Transferência - {transferencia.get('destino', '')}",
                     "detalhes": str(transferencia.get("motivo", "")),
                 }
             )

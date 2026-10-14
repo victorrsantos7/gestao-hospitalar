@@ -22,7 +22,7 @@ class AuthStateHistoricoTests(unittest.TestCase):
 
         state.consultar_historico()
 
-        self.assertIn("permissao", state.erro_historico)
+        self.assertIn("permissão", state.erro_historico)
 
     def test_authorized_user_loads_and_orders_history(self) -> None:
         state = self._state()

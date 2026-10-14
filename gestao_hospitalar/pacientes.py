@@ -1,4 +1,4 @@
-"""Pagina de cadastro e consulta de pacientes."""
+"""Página de cadastro e consulta de pacientes."""
 
 import reflex as rx
 
@@ -82,13 +82,13 @@ def formulario_paciente() -> rx.Component:
                 width="100%",
             ),
             rx.input(
-                placeholder="Endereco",
+                placeholder="Endereço",
                 value=AuthState.endereco_paciente,
                 on_change=AuthState.set_endereco_paciente,
                 width="100%",
             ),
             rx.input(
-                placeholder="Contato de emergencia: (00) 00000-0000",
+                placeholder="Contato de emergência: (00) 00000-0000",
                 type="tel",
                 value=AuthState.emergencia_paciente,
                 on_change=rx.call_script(
@@ -144,7 +144,7 @@ def detalhe_paciente() -> rx.Component:
                 rx.text("Nome: ", AuthState.paciente_selecionado["nome"]),
                 rx.text("CPF: ", AuthState.paciente_selecionado["cpf"]),
                 rx.text(
-                    "Contato de emergencia: ",
+                    "Contato de emergência: ",
                     AuthState.paciente_selecionado["contato_emergencia"],
                 ),
                 align="start",

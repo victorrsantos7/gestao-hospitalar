@@ -20,7 +20,7 @@ class AuthStateConveniosTests(unittest.TestCase):
 
         state.salvar_convenio()
 
-        self.assertIn("permissao", state.erro_convenio)
+        self.assertIn("permissão", state.erro_convenio)
 
     def test_invalid_type_is_rejected_before_remote_call(self) -> None:
         state = self._state()

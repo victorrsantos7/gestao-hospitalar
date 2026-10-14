@@ -1,4 +1,4 @@
-"""Validacoes dos dados de transferencia."""
+"""Validações dos dados de transferência."""
 
 from datetime import date
 

@@ -9,11 +9,11 @@ def formulario_convenio() -> rx.Component:
     return rx.card(
         rx.vstack(
             rx.heading(
-                rx.cond(AuthState.editando_convenio, "Editar convenio", "Cadastrar convenio"),
+                rx.cond(AuthState.editando_convenio, "Editar convênio", "Cadastrar convênio"),
                 size="5",
             ),
             rx.input(
-                placeholder="Nome do convenio",
+                placeholder="Nome do convênio",
                 value=AuthState.nome_convenio,
                 on_change=AuthState.set_nome_convenio,
                 max_length=120,
@@ -23,7 +23,7 @@ def formulario_convenio() -> rx.Component:
                 AuthState.tipos_convenio,
                 value=AuthState.tipo_convenio,
                 on_change=AuthState.set_tipo_convenio,
-                placeholder="Tipo de convenio",
+                placeholder="Tipo de convênio",
                 width="100%",
             ),
             rx.text_area(
@@ -93,7 +93,7 @@ def detalhe_convenio() -> rx.Component:
         AuthState.possui_convenio_selecionado,
         rx.card(
             rx.vstack(
-                rx.heading("Detalhes do convenio", size="5"),
+                rx.heading("Detalhes do convênio", size="5"),
                 rx.text("Nome: ", AuthState.convenio_selecionado["nome"]),
                 rx.text("Tipo: ", AuthState.convenio_selecionado["tipo"]),
                 rx.text(
@@ -112,7 +112,7 @@ def convenios() -> rx.Component:
     return rx.center(
         rx.vstack(
             rx.hstack(
-                rx.heading("Convenios", size="7"),
+                rx.heading("Convênios", size="7"),
                 rx.spacer(),
                 rx.button("Voltar", on_click=rx.redirect("/dashboard")),
                 width="100%",
@@ -133,7 +133,7 @@ def convenios() -> rx.Component:
             rx.cond(
                 AuthState.possui_convenios,
                 rx.foreach(AuthState.convenios, linha_convenio),
-                rx.text("Nenhum convenio encontrado."),
+                rx.text("Nenhum convênio encontrado."),
             ),
             detalhe_convenio(),
             spacing="4",

@@ -21,7 +21,7 @@ class AuthStateDiagnosticosTests(unittest.TestCase):
 
         state.criar_diagnostico()
 
-        self.assertIn("permissao", state.erro_diagnostico)
+        self.assertIn("permissão", state.erro_diagnostico)
 
     def test_invalid_diagnosis_is_rejected_before_remote_call(self) -> None:
         state = self._state()
@@ -37,7 +37,7 @@ class AuthStateDiagnosticosTests(unittest.TestCase):
         with patch("gestao_hospitalar.auth_state.XanoClient") as client_class:
             state.criar_diagnostico()
 
-        self.assertIn("descricao", state.erro_diagnostico)
+        self.assertIn("descrição", state.erro_diagnostico)
         client_class.assert_not_called()
 
     def test_authorized_user_creates_diagnosis(self) -> None:

@@ -1,4 +1,4 @@
-"""Validacoes e normalizacao de dados de convenios."""
+"""Validações e normalização de dados de convênios."""
 
 from gestao_hospitalar.validacao_pacientes import nome_valido, normalizar_nome
 

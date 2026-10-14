@@ -1,4 +1,4 @@
-"""Pagina de leitos e internacoes."""
+"""Página de leitos e internações."""
 
 import reflex as rx
 
@@ -10,7 +10,7 @@ def formulario_leito() -> rx.Component:
         rx.vstack(
             rx.heading("Cadastrar leito", size="4"),
             rx.input(
-                placeholder="Numero do leito",
+                placeholder="Número do leito",
                 value=AuthState.numero_leito,
                 on_change=AuthState.set_numero_leito,
                 width="100%",
@@ -46,12 +46,12 @@ def linha_leito(leito: dict[str, str]) -> rx.Component:
 def formulario_internacao() -> rx.Component:
     return rx.card(
         rx.vstack(
-            rx.heading("Registrar internacao", size="4"),
+            rx.heading("Registrar internação", size="4"),
             rx.select(
                 AuthState.opcoes_atendimentos_internaveis,
                 value=AuthState.atendimento_id_internacao,
                 on_change=AuthState.set_atendimento_id_internacao,
-                placeholder="Atendimento elegivel",
+                placeholder="Atendimento elegível",
                 width="100%",
             ),
             rx.select(
@@ -69,7 +69,7 @@ def formulario_internacao() -> rx.Component:
                 width="100%",
             ),
             rx.button(
-                "Registrar internacao",
+                "Registrar internação",
                 on_click=AuthState.criar_internacao,
                 width="100%",
             ),
@@ -83,12 +83,12 @@ def formulario_internacao() -> rx.Component:
 def linha_internacao(internacao: dict[str, str]) -> rx.Component:
     return rx.card(
         rx.vstack(
-            rx.text("Internacao #", internacao["id"], weight="bold"),
+            rx.text("Internação #", internacao["id"], weight="bold"),
             rx.text("Atendimento: ", internacao["atendimento_id"]),
             rx.text("Paciente: ", internacao["paciente_id"]),
             rx.text("Leito: ", internacao["leito_numero"]),
             rx.text("Entrada: ", internacao["data_entrada"]),
-            rx.text("Saida: ", internacao["data_saida"]),
+            rx.text("Saída: ", internacao["data_saida"]),
             rx.text("Status: ", internacao["status"]),
             rx.cond(
                 internacao["status"] == "internado",
@@ -101,7 +101,7 @@ def linha_internacao(internacao: dict[str, str]) -> rx.Component:
             rx.cond(
                 AuthState.pode_ver_transferencias,
                 rx.button(
-                    "Ver transferencias",
+                    "Ver transferências",
                     on_click=AuthState.selecionar_internacao_transferencia(
                         internacao["id"]
                     ),
@@ -122,7 +122,7 @@ def formulario_alta() -> rx.Component:
             rx.vstack(
                 rx.heading("Registrar alta", size="4"),
                 rx.input(
-                    placeholder="Data de saida",
+                    placeholder="Data de saída",
                     type="date",
                     value=AuthState.data_saida_internacao,
                     on_change=AuthState.set_data_saida_internacao,
@@ -145,7 +145,7 @@ def formulario_alta() -> rx.Component:
 def linha_transferencia(transferencia: dict[str, str]) -> rx.Component:
     return rx.card(
         rx.vstack(
-            rx.text("Transferencia #", transferencia["id"], weight="bold"),
+            rx.text("Transferência #", transferencia["id"], weight="bold"),
             rx.text("Data: ", transferencia["data_transferencia"]),
             rx.text("Destino: ", transferencia["destino"]),
             rx.text("Motivo: ", transferencia["motivo"]),
@@ -161,7 +161,7 @@ def historico_transferencias() -> rx.Component:
         AuthState.internacao_id_transferencia != "",
         rx.card(
             rx.vstack(
-                rx.heading("Transferencias", size="4"),
+                rx.heading("Transferências", size="4"),
                 rx.cond(
                     AuthState.erro_transferencia != "",
                     rx.text(AuthState.erro_transferencia, color="red"),
@@ -173,13 +173,13 @@ def historico_transferencias() -> rx.Component:
                 rx.cond(
                     AuthState.possui_transferencias,
                     rx.foreach(AuthState.transferencias, linha_transferencia),
-                    rx.text("Nenhuma transferencia registrada."),
+                    rx.text("Nenhuma transferência registrada."),
                 ),
                 rx.cond(
                     AuthState.internacao_transferencia_ativa,
                     rx.vstack(
                         rx.input(
-                            placeholder="Data da transferencia",
+                            placeholder="Data da transferência",
                             type="date",
                             value=AuthState.data_transferencia,
                             on_change=AuthState.set_data_transferencia,
@@ -192,20 +192,20 @@ def historico_transferencias() -> rx.Component:
                             width="100%",
                         ),
                         rx.text_area(
-                            placeholder="Motivo da transferencia",
+                            placeholder="Motivo da transferência",
                             value=AuthState.motivo_transferencia,
                             on_change=AuthState.set_motivo_transferencia,
                             width="100%",
                         ),
                         rx.button(
-                            "Registrar transferencia",
+                            "Registrar transferência",
                             on_click=AuthState.criar_transferencia,
                             width="100%",
                         ),
                         spacing="3",
                         width="100%",
                     ),
-                    rx.text("Internacao encerrada; novas transferencias bloqueadas."),
+                    rx.text("Internação encerrada; novas transferências bloqueadas."),
                 ),
                 spacing="3",
                 width="100%",
@@ -220,7 +220,7 @@ def internacoes() -> rx.Component:
     return rx.center(
         rx.vstack(
             rx.hstack(
-                rx.heading("Internacoes e leitos", size="7"),
+                rx.heading("Internações e leitos", size="7"),
                 rx.spacer(),
                 rx.button("Voltar", on_click=rx.redirect("/dashboard")),
                 width="100%",
@@ -241,7 +241,7 @@ def internacoes() -> rx.Component:
                 formulario_internacao(),
                 rx.fragment(),
             ),
-            rx.heading("Internacoes", size="5"),
+            rx.heading("Internações", size="5"),
             rx.cond(
                 AuthState.erro_internacao != "",
                 rx.text(AuthState.erro_internacao, color="red"),
@@ -253,7 +253,7 @@ def internacoes() -> rx.Component:
             rx.cond(
                 AuthState.possui_internacoes,
                 rx.foreach(AuthState.internacoes, linha_internacao),
-                rx.text("Nenhuma internacao encontrada."),
+                rx.text("Nenhuma internação encontrada."),
             ),
             formulario_alta(),
             historico_transferencias(),

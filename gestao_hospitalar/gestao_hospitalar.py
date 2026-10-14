@@ -24,13 +24,13 @@ app.add_page(
 app.add_page(
 	medicos,
 	route="/medicos",
-	title="Medicos",
+	title="Médicos",
 	on_load=AuthState.carregar_medicos,
 )
 app.add_page(
 	convenios,
 	route="/convenios",
-	title="Convenios",
+	title="Convênios",
 	on_load=AuthState.carregar_convenios,
 )
 app.add_page(
@@ -42,12 +42,12 @@ app.add_page(
 app.add_page(
 	internacoes,
 	route="/internacoes",
-	title="Internacoes e leitos",
+	title="Internações e leitos",
 	on_load=AuthState.carregar_internacoes,
 )
 app.add_page(
 	historico,
 	route="/historico",
-	title="Historico do paciente",
+	title="Histórico do paciente",
 	on_load=AuthState.carregar_historico,
 )

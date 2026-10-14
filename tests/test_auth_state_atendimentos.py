@@ -20,7 +20,7 @@ class AuthStateAtendimentosTests(unittest.TestCase):
 
         state.criar_atendimento()
 
-        self.assertIn("permissao", state.erro_atendimento)
+        self.assertIn("permissão", state.erro_atendimento)
 
     def test_invalid_type_is_rejected_before_remote_call(self) -> None:
         state = self._state()

@@ -20,14 +20,14 @@ def formulario_atendimento() -> rx.Component:
                 AuthState.opcoes_medicos_atendimento,
                 value=AuthState.medico_id_atendimento,
                 on_change=AuthState.set_medico_id_atendimento,
-                placeholder="Medico",
+                placeholder="Médico",
                 width="100%",
             ),
             rx.select(
                 AuthState.opcoes_convenios_atendimento,
                 value=AuthState.convenio_id_atendimento,
                 on_change=AuthState.set_convenio_id_atendimento,
-                placeholder="Convenio (opcional)",
+                placeholder="Convênio (opcional)",
                 width="100%",
             ),
             rx.input(
@@ -77,8 +77,8 @@ def linha_atendimento(atendimento: dict[str, str]) -> rx.Component:
                     weight="bold",
                 ),
                 rx.text("Paciente: ", atendimento["paciente_nome"]),
-                rx.text("Medico: ", atendimento["medico_nome"]),
-                rx.text("Convenio: ", atendimento["convenio_nome"]),
+                rx.text("Médico: ", atendimento["medico_nome"]),
+                rx.text("Convênio: ", atendimento["convenio_nome"]),
                 rx.text("Data: ", atendimento["data_atendimento"]),
                 rx.text("Tipo: ", atendimento["tipo"]),
                 align="start",
@@ -98,21 +98,21 @@ def linha_atendimento(atendimento: dict[str, str]) -> rx.Component:
 def formulario_diagnostico() -> rx.Component:
     return rx.card(
         rx.vstack(
-            rx.heading("Cadastrar diagnostico", size="4"),
+            rx.heading("Cadastrar diagnóstico", size="4"),
             rx.input(
-                placeholder="Descricao",
+                placeholder="Descrição",
                 value=AuthState.descricao_diagnostico,
                 on_change=AuthState.set_descricao_diagnostico,
                 width="100%",
             ),
             rx.input(
-                placeholder="Codigo CID (opcional)",
+                placeholder="Código CID (opcional)",
                 value=AuthState.codigo_cid_diagnostico,
                 on_change=AuthState.set_codigo_cid_diagnostico,
                 width="100%",
             ),
             rx.input(
-                placeholder="Data do diagnostico",
+                placeholder="Data do diagnóstico",
                 type="date",
                 value=AuthState.data_diagnostico,
                 on_change=AuthState.set_data_diagnostico,
@@ -123,7 +123,7 @@ def formulario_diagnostico() -> rx.Component:
                 rx.text(AuthState.sucesso_diagnostico, color="green"),
             ),
             rx.button(
-                "Cadastrar diagnostico",
+                "Cadastrar diagnóstico",
                 on_click=AuthState.criar_diagnostico,
                 width="100%",
             ),
@@ -137,9 +137,9 @@ def formulario_diagnostico() -> rx.Component:
 def linha_diagnostico(diagnostico: dict[str, str]) -> rx.Component:
     return rx.card(
         rx.vstack(
-            rx.text("Diagnostico #", diagnostico["id"], weight="bold"),
-            rx.text("Descricao: ", diagnostico["descricao"]),
-            rx.text("Codigo CID: ", diagnostico["codigo_cid"]),
+            rx.text("Diagnóstico #", diagnostico["id"], weight="bold"),
+            rx.text("Descrição: ", diagnostico["descricao"]),
+            rx.text("Código CID: ", diagnostico["codigo_cid"]),
             rx.text("Data: ", diagnostico["data_diagnostico"]),
             align="start",
             width="100%",
@@ -152,7 +152,7 @@ def diagnosticos_atendimento() -> rx.Component:
     return rx.cond(
         AuthState.pode_ver_diagnosticos,
         rx.vstack(
-            rx.heading("Diagnosticos", size="4"),
+            rx.heading("Diagnósticos", size="4"),
             rx.cond(
                 AuthState.erro_diagnostico != "",
                 rx.text(AuthState.erro_diagnostico, color="red"),
@@ -160,7 +160,7 @@ def diagnosticos_atendimento() -> rx.Component:
             rx.cond(
                 AuthState.possui_diagnosticos,
                 rx.foreach(AuthState.diagnosticos, linha_diagnostico),
-                rx.text("Nenhum diagnostico encontrado."),
+                    rx.text("Nenhum diagnóstico encontrado."),
             ),
             formulario_diagnostico(),
             align="start",
@@ -177,8 +177,8 @@ def detalhe_atendimento() -> rx.Component:
             rx.vstack(
                 rx.heading("Detalhes do atendimento", size="5"),
                 rx.text("Paciente: ", AuthState.atendimento_selecionado["paciente_nome"]),
-                rx.text("Medico: ", AuthState.atendimento_selecionado["medico_nome"]),
-                rx.text("Convenio: ", AuthState.atendimento_selecionado["convenio_nome"]),
+                rx.text("Médico: ", AuthState.atendimento_selecionado["medico_nome"]),
+                rx.text("Convênio: ", AuthState.atendimento_selecionado["convenio_nome"]),
                 rx.text(
                     "Data: ",
                     AuthState.atendimento_selecionado["data_atendimento"],

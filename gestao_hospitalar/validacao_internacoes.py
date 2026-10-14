@@ -1,4 +1,4 @@
-"""Validacoes dos dados de leitos e internacoes."""
+"""Validações dos dados de leitos e internações."""
 
 from datetime import date
 

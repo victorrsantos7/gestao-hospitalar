@@ -1,4 +1,4 @@
-"""Pagina de historico consolidado do paciente."""
+"""Página de histórico consolidado do paciente."""
 
 import reflex as rx
 
@@ -26,7 +26,7 @@ def historico() -> rx.Component:
     return rx.center(
         rx.vstack(
             rx.hstack(
-                rx.heading("Historico do paciente", size="7"),
+                rx.heading("Histórico do paciente", size="7"),
                 rx.spacer(),
                 rx.button("Voltar", on_click=rx.redirect("/dashboard")),
                 width="100%",
@@ -39,7 +39,7 @@ def historico() -> rx.Component:
                 width="100%",
             ),
             rx.button(
-                "Consultar historico",
+                "Consultar histórico",
                 on_click=AuthState.consultar_historico,
                 width="100%",
             ),

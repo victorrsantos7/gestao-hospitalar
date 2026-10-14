@@ -49,7 +49,7 @@ class ValidacaoHistoricoTests(unittest.TestCase):
 
         self.assertEqual(
             [evento["tipo"] for evento in eventos],
-            ["atendimento", "diagnostico", "internacao", "transferencia"],
+            ["atendimento", "diagnóstico", "internação", "transferência"],
         )
 
 

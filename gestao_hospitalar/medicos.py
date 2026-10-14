@@ -8,7 +8,7 @@ from gestao_hospitalar.auth_state import AuthState
 def formulario_medico() -> rx.Component:
     return rx.card(
         rx.vstack(
-            rx.heading("Cadastrar medico", size="5"),
+            rx.heading("Cadastrar médico", size="5"),
             rx.input(
                 placeholder="Nome completo",
                 value=AuthState.nome_medico,
@@ -80,7 +80,7 @@ def detalhe_medico() -> rx.Component:
         AuthState.possui_medico_selecionado,
         rx.card(
             rx.vstack(
-                rx.heading("Detalhes do medico", size="5"),
+                rx.heading("Detalhes do médico", size="5"),
                 rx.text("Nome: ", AuthState.medico_selecionado["nome"]),
                 rx.text("CRM: ", AuthState.medico_selecionado["crm"]),
                 rx.text(
@@ -100,7 +100,7 @@ def medicos() -> rx.Component:
     return rx.center(
         rx.vstack(
             rx.hstack(
-                rx.heading("Medicos", size="7"),
+                rx.heading("Médicos", size="7"),
                 rx.spacer(),
                 rx.button("Voltar", on_click=rx.redirect("/dashboard")),
                 width="100%",
@@ -113,7 +113,7 @@ def medicos() -> rx.Component:
             rx.cond(
                 AuthState.possui_medicos,
                 rx.foreach(AuthState.medicos, linha_medico),
-                rx.text("Nenhum medico encontrado."),
+                rx.text("Nenhum médico encontrado."),
             ),
             detalhe_medico(),
             spacing="4",

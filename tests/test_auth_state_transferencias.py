@@ -21,7 +21,7 @@ class AuthStateTransferenciasTests(unittest.TestCase):
 
         state.criar_transferencia()
 
-        self.assertIn("permissao", state.erro_transferencia)
+        self.assertIn("permissão", state.erro_transferencia)
 
     def test_active_admission_creates_transfer(self) -> None:
         state = self._state()

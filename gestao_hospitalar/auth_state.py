@@ -519,10 +519,10 @@ class AuthState(rx.State):
         self.erro_historico = ""
         self.historico_eventos = []
         if not self.pode_ver_historico:
-            self.erro_historico = "Voce nao tem permissao para consultar historico."
+            self.erro_historico = "Você não tem permissão para consultar histórico."
             return
         if not referencia_historico_valida(paciente_id):
-            self.erro_historico = "Selecione um paciente valido."
+            self.erro_historico = "Selecione um paciente válido."
             return
         try:
             payload = XanoClient(XanoConfig.from_env()).consultar_historico(
@@ -530,7 +530,7 @@ class AuthState(rx.State):
                 int(paciente_id),
             )
         except XanoError:
-            self.erro_historico = "Nao foi possivel carregar o historico."
+            self.erro_historico = "Não foi possível carregar o histórico."
             return
         self.historico_eventos = normalizar_historico(payload)
 
@@ -544,7 +544,7 @@ class AuthState(rx.State):
                 self._auth_token
             )
         except XanoError:
-            self.erro_historico = "Nao foi possivel carregar os pacientes."
+            self.erro_historico = "Não foi possível carregar os pacientes."
             return
         self.pacientes_historico = [
             {chave: "" if valor is None else str(valor) for chave, valor in registro.items()}
@@ -578,7 +578,7 @@ class AuthState(rx.State):
             self.usuario_id = 0
             self.papel = ""
             self._auth_token = ""
-            self.erro = "Seu papel nao possui acesso ao sistema."
+            self.erro = "Seu papel não possui acesso ao sistema."
             return rx.redirect("/")
         self.erro = ""
         self.senha = ""
@@ -686,7 +686,7 @@ class AuthState(rx.State):
         """Executa a consulta de pacientes dentro de outro evento."""
         self.erro_paciente = ""
         if not pode_acessar(self.is_authenticated, self.papel, RECURSO_PACIENTES):
-            self.erro_paciente = "Voce nao tem permissao para consultar pacientes."
+            self.erro_paciente = "Você não tem permissão para consultar pacientes."
             return
 
         try:
@@ -695,7 +695,7 @@ class AuthState(rx.State):
             )
         except XanoError:
             logger.warning("patient_list_result status=xano_error role=%s", self.papel)
-            self.erro_paciente = "Nao foi possivel carregar os pacientes."
+            self.erro_paciente = "Não foi possível carregar os pacientes."
             return
 
         self.pacientes = [
@@ -729,7 +729,7 @@ class AuthState(rx.State):
         """Executa a consulta de medicos dentro de outro evento."""
         self.erro_medico = ""
         if not pode_acessar(self.is_authenticated, self.papel, RECURSO_MEDICOS):
-            self.erro_medico = "Voce nao tem permissao para consultar medicos."
+            self.erro_medico = "Você não tem permissão para consultar médicos."
             return
 
         try:
@@ -738,7 +738,7 @@ class AuthState(rx.State):
             )
         except XanoError:
             logger.warning("doctor_list_result status=xano_error role=%s", self.papel)
-            self.erro_medico = "Nao foi possivel carregar os medicos."
+            self.erro_medico = "Não foi possível carregar os médicos."
             return
 
         self.medicos = [
@@ -755,7 +755,7 @@ class AuthState(rx.State):
     def consultar_medico(self, medico_id: str):
         """Carrega os dados detalhados de um medico autorizado."""
         if not pode_acessar(self.is_authenticated, self.papel, RECURSO_MEDICOS):
-            self.erro_medico = "Voce nao tem permissao para consultar medicos."
+            self.erro_medico = "Você não tem permissão para consultar médicos."
             return
         try:
             registro = XanoClient(XanoConfig.from_env()).consultar_medico(
@@ -763,7 +763,7 @@ class AuthState(rx.State):
                 int(medico_id),
             )
         except (ValueError, XanoError):
-            self.erro_medico = "Nao foi possivel consultar o medico."
+            self.erro_medico = "Não foi possível consultar o médico."
             return
         self.medico_selecionado = {
             chave: str(valor) for chave, valor in registro.items()
@@ -775,7 +775,7 @@ class AuthState(rx.State):
         self.erro_medico = ""
         self.sucesso_medico = ""
         if not pode_acessar(self.is_authenticated, self.papel, RECURSO_MEDICOS):
-            self.erro_medico = "Voce nao tem permissao para cadastrar medicos."
+            self.erro_medico = "Você não tem permissão para cadastrar médicos."
             return
 
         campos = [
@@ -785,20 +785,20 @@ class AuthState(rx.State):
             self.telefone_medico,
         ]
         if not all(campo.strip() for campo in campos):
-            self.erro_medico = "Preencha todos os campos do medico."
+            self.erro_medico = "Preencha todos os campos do médico."
             return
 
         nome = normalizar_nome(self.nome_medico)
         crm = normalizar_crm(self.crm_medico)
         telefone = normalizar_telefone(self.telefone_medico)
         if not nome_valido(nome):
-            self.erro_medico = "Informe um nome valido."
+            self.erro_medico = "Informe um nome válido."
             return
         if not crm_valido(crm):
-            self.erro_medico = "Informe um CRM valido."
+            self.erro_medico = "Informe um CRM válido."
             return
         if not telefone_valido(telefone):
-            self.erro_medico = "Informe um telefone valido."
+            self.erro_medico = "Informe um telefone válido."
             return
 
         try:
@@ -806,13 +806,13 @@ class AuthState(rx.State):
                 self._auth_token
             )
         except XanoError:
-            self.erro_medico = "Nao foi possivel validar o CRM."
+            self.erro_medico = "Não foi possível validar o CRM."
             return
         if any(
             normalizar_crm(str(medico.get("crm", ""))) == crm
             for medico in medicos_existentes
         ):
-            self.erro_medico = "O CRM ja esta cadastrado."
+            self.erro_medico = "O CRM já está cadastrado."
             return
 
         try:
@@ -826,13 +826,13 @@ class AuthState(rx.State):
                 },
             )
         except XanoValidationError:
-            self.erro_medico = "O CRM ja esta cadastrado."
+            self.erro_medico = "O CRM já está cadastrado."
             return
         except XanoError:
-            self.erro_medico = "Nao foi possivel cadastrar o medico."
+            self.erro_medico = "Não foi possível cadastrar o médico."
             return
 
-        self.sucesso_medico = f"Medico cadastrado (#{medico_id})."
+        self.sucesso_medico = f"Médico cadastrado (#{medico_id})."
         self.nome_medico = ""
         self.crm_medico = ""
         self.especialidade_medico = ""
@@ -849,14 +849,14 @@ class AuthState(rx.State):
     def _carregar_convenios(self):
         self.erro_convenio = ""
         if not pode_acessar(self.is_authenticated, self.papel, RECURSO_CONVENIOS):
-            self.erro_convenio = "Voce nao tem permissao para consultar convenios."
+            self.erro_convenio = "Você não tem permissão para consultar convênios."
             return
         try:
             registros = XanoClient(XanoConfig.from_env()).listar_convenios(
                 self._auth_token
             )
         except XanoError:
-            self.erro_convenio = "Nao foi possivel carregar os convenios."
+            self.erro_convenio = "Não foi possível carregar os convênios."
             return
         self.convenios = [
             {chave: str(valor) for chave, valor in registro.items()}
@@ -867,7 +867,7 @@ class AuthState(rx.State):
     def consultar_convenio(self, convenio_id: str):
         """Carrega os dados detalhados de um convenio autorizado."""
         if not pode_acessar(self.is_authenticated, self.papel, RECURSO_CONVENIOS):
-            self.erro_convenio = "Voce nao tem permissao para consultar convenios."
+            self.erro_convenio = "Você não tem permissão para consultar convênios."
             return
         try:
             registro = XanoClient(XanoConfig.from_env()).consultar_convenio(
@@ -875,7 +875,7 @@ class AuthState(rx.State):
                 int(convenio_id),
             )
         except (ValueError, XanoError):
-            self.erro_convenio = "Nao foi possivel consultar o convenio."
+            self.erro_convenio = "Não foi possível consultar o convênio."
             return
         self.convenio_selecionado = {
             chave: str(valor) for chave, valor in registro.items()
@@ -889,7 +889,7 @@ class AuthState(rx.State):
                 if convenio.get("id") == str(int(convenio_id))
             )
         except (StopIteration, ValueError):
-            self.erro_convenio = "Nao foi possivel editar o convenio."
+            self.erro_convenio = "Não foi possível editar o convênio."
             return
         self.id_convenio_edicao = str(convenio_id)
         self.nome_convenio = registro.get("nome", "")
@@ -909,20 +909,20 @@ class AuthState(rx.State):
         self.erro_convenio = ""
         self.sucesso_convenio = ""
         if not pode_acessar(self.is_authenticated, self.papel, RECURSO_CONVENIOS):
-            self.erro_convenio = "Voce nao tem permissao para manter convenios."
+            self.erro_convenio = "Você não tem permissão para manter convênios."
             return
 
         nome = normalizar_nome_convenio(self.nome_convenio)
         tipo = self.tipo_convenio.strip()
         cobertura = self.cobertura_convenio.strip()
         if not nome or not tipo or not cobertura:
-            self.erro_convenio = "Preencha todos os campos do convenio."
+            self.erro_convenio = "Preencha todos os campos do convênio."
             return
         if not nome_convenio_valido(nome):
-            self.erro_convenio = "Informe um nome valido."
+            self.erro_convenio = "Informe um nome válido."
             return
         if not tipo_convenio_valido(tipo):
-            self.erro_convenio = "Informe um tipo de convenio valido."
+            self.erro_convenio = "Informe um tipo de convênio válido."
             return
 
         nome_normalizado = nome.casefold()
@@ -931,7 +931,7 @@ class AuthState(rx.State):
                 self._auth_token
             )
         except XanoError:
-            self.erro_convenio = "Nao foi possivel validar o convenio."
+            self.erro_convenio = "Não foi possível validar o convênio."
             return
         if any(
             str(convenio.get("id")) != self.id_convenio_edicao
@@ -939,7 +939,7 @@ class AuthState(rx.State):
             == nome_normalizado
             for convenio in existentes
         ):
-            self.erro_convenio = "O convenio ja esta cadastrado."
+            self.erro_convenio = "O convênio já está cadastrado."
             return
 
         dados = {
@@ -956,15 +956,15 @@ class AuthState(rx.State):
                     int(self.id_convenio_edicao),
                     dados,
                 )
-                mensagem = "Convenio atualizado."
+                mensagem = "Convênio atualizado."
             else:
                 convenio_id = cliente.criar_convenio(self._auth_token, dados)
-                mensagem = f"Convenio cadastrado (#{convenio_id})."
+                mensagem = f"Convênio cadastrado (#{convenio_id})."
         except XanoValidationError:
-            self.erro_convenio = "O convenio ja esta cadastrado."
+            self.erro_convenio = "O convênio já está cadastrado."
             return
         except (ValueError, XanoError):
-            self.erro_convenio = "Nao foi possivel salvar o convenio."
+            self.erro_convenio = "Não foi possível salvar o convênio."
             return
 
         self.sucesso_convenio = mensagem
@@ -974,7 +974,7 @@ class AuthState(rx.State):
     @rx.event
     def excluir_convenio(self, convenio_id: str):
         if not pode_acessar(self.is_authenticated, self.papel, RECURSO_CONVENIOS):
-            self.erro_convenio = "Voce nao tem permissao para excluir convenios."
+            self.erro_convenio = "Você não tem permissão para excluir convênios."
             return
         try:
             XanoClient(XanoConfig.from_env()).excluir_convenio(
@@ -982,9 +982,9 @@ class AuthState(rx.State):
                 int(convenio_id),
             )
         except (ValueError, XanoError):
-            self.erro_convenio = "Nao foi possivel excluir o convenio."
+            self.erro_convenio = "Não foi possível excluir o convênio."
             return
-        self.sucesso_convenio = "Convenio excluido."
+        self.sucesso_convenio = "Convênio excluído."
         self.convenio_selecionado = {}
         self._carregar_convenios()
 
@@ -1010,7 +1010,7 @@ class AuthState(rx.State):
             RECURSO_ATENDIMENTOS,
         ):
             self.erro_atendimento = (
-                "Voce nao tem permissao para consultar atendimentos."
+                "Você não tem permissão para consultar atendimentos."
             )
             return
         try:
@@ -1018,7 +1018,7 @@ class AuthState(rx.State):
                 self._auth_token
             )
         except XanoError:
-            self.erro_atendimento = "Nao foi possivel carregar os atendimentos."
+            self.erro_atendimento = "Não foi possível carregar os atendimentos."
             return
         self.atendimentos = [
             {chave: str(valor) for chave, valor in registro.items()}
@@ -1034,7 +1034,7 @@ class AuthState(rx.State):
             RECURSO_ATENDIMENTOS,
         ):
             self.erro_atendimento = (
-                "Voce nao tem permissao para consultar atendimentos."
+                "Você não tem permissão para consultar atendimentos."
             )
             return
         try:
@@ -1043,7 +1043,7 @@ class AuthState(rx.State):
                 int(atendimento_id),
             )
         except (ValueError, XanoError):
-            self.erro_atendimento = "Nao foi possivel consultar o atendimento."
+            self.erro_atendimento = "Não foi possível consultar o atendimento."
             return
         self.atendimento_selecionado = {
             chave: str(valor) for chave, valor in registro.items()
@@ -1063,7 +1063,7 @@ class AuthState(rx.State):
             self.diagnosticos = []
             return
         if not referencia_diagnostico_valida(atendimento_id):
-            self.erro_diagnostico = "Nao foi possivel consultar os diagnosticos."
+            self.erro_diagnostico = "Não foi possível consultar os diagnósticos."
             return
         try:
             registros = XanoClient(XanoConfig.from_env()).listar_diagnosticos(
@@ -1071,7 +1071,7 @@ class AuthState(rx.State):
                 int(atendimento_id),
             )
         except XanoError:
-            self.erro_diagnostico = "Nao foi possivel carregar os diagnosticos."
+            self.erro_diagnostico = "Não foi possível carregar os diagnósticos."
             return
         self.diagnosticos = [
             {
@@ -1088,17 +1088,17 @@ class AuthState(rx.State):
         self.sucesso_diagnostico = ""
         if not self.pode_ver_diagnosticos:
             self.erro_diagnostico = (
-                "Voce nao tem permissao para cadastrar diagnosticos."
+                "Você não tem permissão para cadastrar diagnósticos."
             )
             return
         if not referencia_diagnostico_valida(self.atendimento_id_diagnostico):
-            self.erro_diagnostico = "Informe um atendimento valido."
+            self.erro_diagnostico = "Informe um atendimento válido."
             return
         if not diagnostico_texto_valido(self.descricao_diagnostico):
-            self.erro_diagnostico = "Informe a descricao do diagnostico."
+            self.erro_diagnostico = "Informe a descrição do diagnóstico."
             return
         if not data_diagnostico_valida(self.data_diagnostico):
-            self.erro_diagnostico = "Informe uma data de diagnostico valida."
+            self.erro_diagnostico = "Informe uma data de diagnóstico válida."
             return
 
         try:
@@ -1112,13 +1112,13 @@ class AuthState(rx.State):
                 },
             )
         except XanoValidationError:
-            self.erro_diagnostico = "O atendimento informado e invalido."
+            self.erro_diagnostico = "O atendimento informado é inválido."
             return
         except XanoError:
-            self.erro_diagnostico = "Nao foi possivel cadastrar o diagnostico."
+            self.erro_diagnostico = "Não foi possível cadastrar o diagnóstico."
             return
 
-        self.sucesso_diagnostico = f"Diagnostico cadastrado (#{diagnostico_id})."
+        self.sucesso_diagnostico = f"Diagnóstico cadastrado (#{diagnostico_id})."
         self.descricao_diagnostico = ""
         self.codigo_cid_diagnostico = ""
         self.data_diagnostico = ""
@@ -1134,14 +1134,14 @@ class AuthState(rx.State):
     def _carregar_leitos(self):
         self.erro_leito = ""
         if not pode_acessar(self.is_authenticated, self.papel, RECURSO_LEITOS):
-            self.erro_leito = "Voce nao tem permissao para consultar leitos."
+            self.erro_leito = "Você não tem permissão para consultar leitos."
             return
         try:
             registros = XanoClient(XanoConfig.from_env()).listar_leitos(
                 self._auth_token
             )
         except XanoError:
-            self.erro_leito = "Nao foi possivel carregar os leitos."
+            self.erro_leito = "Não foi possível carregar os leitos."
             return
         self.leitos = [
             {chave: "" if valor is None else str(valor) for chave, valor in registro.items()}
@@ -1154,11 +1154,11 @@ class AuthState(rx.State):
         self.erro_leito = ""
         self.sucesso_leito = ""
         if not self.pode_cadastrar_leitos:
-            self.erro_leito = "Voce nao tem permissao para cadastrar leitos."
+            self.erro_leito = "Você não tem permissão para cadastrar leitos."
             return
         numero = self.numero_leito.strip()
         if not numero_leito_valido(numero):
-            self.erro_leito = "Informe um numero de leito valido."
+            self.erro_leito = "Informe um número de leito válido."
             return
         try:
             leito_id = XanoClient(XanoConfig.from_env()).criar_leito(
@@ -1169,7 +1169,7 @@ class AuthState(rx.State):
             self.erro_leito = str(error)
             return
         except XanoError:
-            self.erro_leito = "Nao foi possivel cadastrar o leito."
+            self.erro_leito = "Não foi possível cadastrar o leito."
             return
         self.sucesso_leito = f"Leito cadastrado (#{leito_id})."
         self.numero_leito = ""
@@ -1198,7 +1198,7 @@ class AuthState(rx.State):
                 self._auth_token
             )
         except XanoError:
-            self.erro_internacao = "Nao foi possivel carregar os atendimentos elegiveis."
+            self.erro_internacao = "Não foi possível carregar os atendimentos elegíveis."
             return
         self.atendimentos_internaveis = [
             {
@@ -1215,14 +1215,14 @@ class AuthState(rx.State):
             self.papel,
             RECURSO_INTERNACOES,
         ):
-            self.erro_internacao = "Voce nao tem permissao para consultar internacoes."
+            self.erro_internacao = "Você não tem permissão para consultar internações."
             return
         try:
             registros = XanoClient(XanoConfig.from_env()).listar_internacoes(
                 self._auth_token
             )
         except XanoError:
-            self.erro_internacao = "Nao foi possivel carregar as internacoes."
+            self.erro_internacao = "Não foi possível carregar as internações."
             return
         numeros_por_id = {
             leito.get("id", ""): leito.get("numero", "")
@@ -1246,18 +1246,18 @@ class AuthState(rx.State):
         self.erro_internacao = ""
         self.sucesso_internacao = ""
         if not self.pode_cadastrar_internacoes:
-            self.erro_internacao = "Voce nao tem permissao para cadastrar internacoes."
+            self.erro_internacao = "Você não tem permissão para cadastrar internações."
             return
         atendimento_id = self.atendimento_id_internacao.split(" - ", 1)[0].strip()
         leito_id = self.leito_id_internacao.split(" - ", 1)[0].strip()
         if not referencia_atendimento_valida(atendimento_id):
-            self.erro_internacao = "Informe um atendimento valido."
+            self.erro_internacao = "Informe um atendimento válido."
             return
         if not numero_leito_valido(leito_id):
-            self.erro_internacao = "Informe um leito valido."
+            self.erro_internacao = "Informe um leito válido."
             return
         if not data_internacao_valida(self.data_entrada_internacao):
-            self.erro_internacao = "Informe uma data de entrada valida."
+            self.erro_internacao = "Informe uma data de entrada válida."
             return
         try:
             internacao_id = XanoClient(XanoConfig.from_env()).criar_internacao(
@@ -1272,9 +1272,9 @@ class AuthState(rx.State):
             self.erro_internacao = str(error)
             return
         except XanoError:
-            self.erro_internacao = "Nao foi possivel cadastrar a internacao."
+            self.erro_internacao = "Não foi possível cadastrar a internação."
             return
-        self.sucesso_internacao = f"Internacao cadastrada (#{internacao_id})."
+        self.sucesso_internacao = f"Internação cadastrada (#{internacao_id})."
         self.atendimento_id_internacao = ""
         self.leito_id_internacao = ""
         self.data_entrada_internacao = ""
@@ -1288,10 +1288,10 @@ class AuthState(rx.State):
         self.erro_internacao = ""
         self.sucesso_internacao = ""
         if not self.pode_cadastrar_internacoes:
-            self.erro_internacao = "Voce nao tem permissao para registrar alta."
+            self.erro_internacao = "Você não tem permissão para registrar alta."
             return
         if not referencia_atendimento_valida(self.internacao_id_alta):
-            self.erro_internacao = "Selecione uma internacao valida."
+            self.erro_internacao = "Selecione uma internação válida."
             return
         internacao = next(
             (
@@ -1302,19 +1302,19 @@ class AuthState(rx.State):
             None,
         )
         if internacao is None:
-            self.erro_internacao = "Internacao nao encontrada."
+            self.erro_internacao = "Internação não encontrada."
             return
         if not status_internacao_valido(internacao.get("status", "")):
-            self.erro_internacao = "Status de internacao invalido."
+            self.erro_internacao = "Status de internação inválido."
             return
         if internacao.get("status") != "internado":
-            self.erro_internacao = "Internacao ja encerrada."
+            self.erro_internacao = "Internação já encerrada."
             return
         if not data_saida_valida(
             self.data_saida_internacao,
             internacao.get("data_entrada", ""),
         ):
-            self.erro_internacao = "Informe uma data de saida valida."
+            self.erro_internacao = "Informe uma data de saída válida."
             return
         try:
             XanoClient(XanoConfig.from_env()).registrar_alta(
@@ -1323,10 +1323,10 @@ class AuthState(rx.State):
                 self.data_saida_internacao,
             )
         except XanoValidationError:
-            self.erro_internacao = "A internacao nao pode receber alta."
+            self.erro_internacao = "A internação não pode receber alta."
             return
         except XanoError:
-            self.erro_internacao = "Nao foi possivel registrar a alta."
+            self.erro_internacao = "Não foi possível registrar a alta."
             return
         self.sucesso_internacao = "Alta registrada e leito liberado."
         self.internacao_id_alta = ""
@@ -1344,7 +1344,7 @@ class AuthState(rx.State):
             self.transferencias = []
             return
         if not referencia_transferencia_valida(internacao_id):
-            self.erro_transferencia = "Informe uma internacao valida."
+            self.erro_transferencia = "Informe uma internação válida."
             return
         try:
             registros = XanoClient(XanoConfig.from_env()).listar_transferencias(
@@ -1352,7 +1352,7 @@ class AuthState(rx.State):
                 int(internacao_id),
             )
         except XanoError:
-            self.erro_transferencia = "Nao foi possivel carregar as transferencias."
+            self.erro_transferencia = "Não foi possível carregar as transferências."
             return
         self.transferencias = [
             {
@@ -1368,10 +1368,10 @@ class AuthState(rx.State):
         self.erro_transferencia = ""
         self.sucesso_transferencia = ""
         if not self.pode_ver_transferencias:
-            self.erro_transferencia = "Voce nao tem permissao para transferencias."
+            self.erro_transferencia = "Você não tem permissão para transferências."
             return
         if not referencia_transferencia_valida(self.internacao_id_transferencia):
-            self.erro_transferencia = "Selecione uma internacao valida."
+            self.erro_transferencia = "Selecione uma internação válida."
             return
         internacao = next(
             (
@@ -1382,19 +1382,19 @@ class AuthState(rx.State):
             None,
         )
         if internacao is None:
-            self.erro_transferencia = "Internacao nao encontrada."
+            self.erro_transferencia = "Internação não encontrada."
             return
         if internacao.get("status") != "internado":
-            self.erro_transferencia = "Internacao encerrada."
+            self.erro_transferencia = "Internação encerrada."
             return
         if not data_transferencia_valida(self.data_transferencia):
-            self.erro_transferencia = "Informe uma data de transferencia valida."
+            self.erro_transferencia = "Informe uma data de transferência válida."
             return
         if not transferencia_texto_valida(self.destino_transferencia):
-            self.erro_transferencia = "Informe o destino da transferencia."
+            self.erro_transferencia = "Informe o destino da transferência."
             return
         if not transferencia_texto_valida(self.motivo_transferencia):
-            self.erro_transferencia = "Informe o motivo da transferencia."
+            self.erro_transferencia = "Informe o motivo da transferência."
             return
         try:
             transferencia_id = XanoClient(XanoConfig.from_env()).criar_transferencia(
@@ -1410,10 +1410,10 @@ class AuthState(rx.State):
             self.erro_transferencia = str(error)
             return
         except XanoError:
-            self.erro_transferencia = "Nao foi possivel cadastrar a transferencia."
+            self.erro_transferencia = "Não foi possível cadastrar a transferência."
             return
         self.sucesso_transferencia = (
-            f"Transferencia cadastrada (#{transferencia_id})."
+            f"Transferência cadastrada (#{transferencia_id})."
         )
         self.data_transferencia = ""
         self.destino_transferencia = ""
@@ -1427,7 +1427,7 @@ class AuthState(rx.State):
         self.sucesso_atendimento = ""
         if not self.pode_cadastrar_atendimentos:
             self.erro_atendimento = (
-                "Voce nao tem permissao para cadastrar atendimentos."
+                "Você não tem permissão para cadastrar atendimentos."
             )
             return
 
@@ -1445,22 +1445,22 @@ class AuthState(rx.State):
             self.erro_atendimento = "Preencha todos os campos do atendimento."
             return
         if not referencia_atendimento_valida(paciente_id):
-            self.erro_atendimento = "Informe um paciente valido."
+            self.erro_atendimento = "Informe um paciente válido."
             return
         if not referencia_atendimento_valida(medico_id):
-            self.erro_atendimento = "Informe um medico valido."
+            self.erro_atendimento = "Informe um médico válido."
             return
         if convenio_id and not referencia_atendimento_valida(convenio_id):
-            self.erro_atendimento = "Informe um convenio valido."
+            self.erro_atendimento = "Informe um convênio válido."
             return
         if not data_atendimento_valida(self.data_atendimento):
-            self.erro_atendimento = "Informe uma data de atendimento valida."
+            self.erro_atendimento = "Informe uma data de atendimento válida."
             return
         if not motivo_atendimento_valido(self.motivo_atendimento):
             self.erro_atendimento = "Informe o motivo do atendimento."
             return
         if not tipo_atendimento_valido(self.tipo_atendimento):
-            self.erro_atendimento = "Informe um tipo de atendimento valido."
+            self.erro_atendimento = "Informe um tipo de atendimento válido."
             return
 
         dados: dict[str, int | str | None] = {
@@ -1477,10 +1477,10 @@ class AuthState(rx.State):
                 dados,
             )
         except XanoValidationError:
-            self.erro_atendimento = "As referencias do atendimento sao invalidas."
+            self.erro_atendimento = "As referências do atendimento são inválidas."
             return
         except XanoError:
-            self.erro_atendimento = "Nao foi possivel cadastrar o atendimento."
+            self.erro_atendimento = "Não foi possível cadastrar o atendimento."
             return
 
         self.sucesso_atendimento = f"Atendimento cadastrado (#{atendimento_id})."
@@ -1496,7 +1496,7 @@ class AuthState(rx.State):
     def consultar_paciente(self, paciente_id: str):
         """Carrega os dados detalhados de um paciente autorizado."""
         if not pode_acessar(self.is_authenticated, self.papel, RECURSO_PACIENTES):
-            self.erro_paciente = "Voce nao tem permissao para consultar pacientes."
+            self.erro_paciente = "Você não tem permissão para consultar pacientes."
             return
         try:
             registro = XanoClient(XanoConfig.from_env()).consultar_paciente(
@@ -1504,7 +1504,7 @@ class AuthState(rx.State):
                 int(paciente_id),
             )
         except (ValueError, XanoError):
-            self.erro_paciente = "Nao foi possivel consultar o paciente."
+            self.erro_paciente = "Não foi possível consultar o paciente."
             return
         self.paciente_selecionado = {
             chave: str(valor) for chave, valor in registro.items()
@@ -1519,7 +1519,7 @@ class AuthState(rx.State):
             self.papel,
             RECURSO_CADASTRO_PACIENTES,
         ):
-            self.erro_paciente = "Voce nao tem permissao para cadastrar pacientes."
+            self.erro_paciente = "Você não tem permissão para cadastrar pacientes."
             return
 
         campos = [
@@ -1536,26 +1536,26 @@ class AuthState(rx.State):
 
         cpf = normalizar_cpf(self.cpf_paciente)
         if not cpf_valido(cpf):
-            self.erro_paciente = "Informe um CPF valido."
+            self.erro_paciente = "Informe um CPF válido."
             return
 
         nome = normalizar_nome(self.nome_paciente)
         if not nome_valido(nome):
-            self.erro_paciente = "Informe um nome valido."
+            self.erro_paciente = "Informe um nome válido."
             return
 
         if not data_nascimento_valida(self.nascimento_paciente):
-            self.erro_paciente = "Informe uma data de nascimento valida."
+            self.erro_paciente = "Informe uma data de nascimento válida."
             return
 
         telefone = normalizar_telefone(self.telefone_paciente)
         if not telefone_valido(telefone):
-            self.erro_paciente = "Informe um telefone valido."
+            self.erro_paciente = "Informe um telefone válido."
             return
 
         contato_emergencia = normalizar_telefone(self.emergencia_paciente)
         if not telefone_valido(contato_emergencia):
-            self.erro_paciente = "Informe um contato de emergencia valido."
+            self.erro_paciente = "Informe um contato de emergência válido."
             return
 
         try:
@@ -1571,10 +1571,10 @@ class AuthState(rx.State):
                 },
             )
         except XanoValidationError:
-            self.erro_paciente = "O CPF ja esta cadastrado."
+            self.erro_paciente = "O CPF já está cadastrado."
             return
         except XanoError:
-            self.erro_paciente = "Nao foi possivel cadastrar o paciente."
+            self.erro_paciente = "Não foi possível cadastrar o paciente."
             return
 
         self.sucesso_paciente = f"Paciente cadastrado (#{paciente_id})."

@@ -23,11 +23,11 @@ def dashboard() -> rx.Component:
             ),
             rx.cond(
                 AuthState.pode_ver_medicos,
-                rx.button("Medicos", on_click=rx.redirect("/medicos"), width="100%"),
+                rx.button("Médicos", on_click=rx.redirect("/medicos"), width="100%"),
             ),
             rx.cond(
                 AuthState.pode_ver_convenios,
-                rx.button("Convenios", on_click=rx.redirect("/convenios"), width="100%"),
+                rx.button("Convênios", on_click=rx.redirect("/convenios"), width="100%"),
             ),
             rx.cond(
                 AuthState.pode_ver_atendimentos,
@@ -35,11 +35,11 @@ def dashboard() -> rx.Component:
             ),
             rx.cond(
                 AuthState.pode_ver_internacoes,
-                rx.button("Internacoes e leitos", on_click=rx.redirect("/internacoes"), width="100%"),
+                rx.button("Internações e leitos", on_click=rx.redirect("/internacoes"), width="100%"),
             ),
             rx.cond(
                 AuthState.pode_ver_historico,
-                rx.button("Historico do paciente", on_click=rx.redirect("/historico"), width="100%"),
+                rx.button("Histórico do paciente", on_click=rx.redirect("/historico"), width="100%"),
             ),
             rx.spacer(),
             rx.button("Sair", on_click=AuthState.do_logout, width="100%"),

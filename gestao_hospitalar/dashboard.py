@@ -41,6 +41,10 @@ def dashboard() -> rx.Component:
                 AuthState.pode_ver_historico,
                 rx.button("Histórico do paciente", on_click=rx.redirect("/historico"), width="100%"),
             ),
+            rx.cond(
+                AuthState.pode_ver_relatorios,
+                rx.button("Relatórios", on_click=rx.redirect("/relatorios"), width="100%"),
+            ),
             rx.spacer(),
             rx.button("Sair", on_click=AuthState.do_logout, width="100%"),
             align="start",

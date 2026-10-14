@@ -14,8 +14,13 @@ from gestao_hospitalar.authorization import (
     RECURSO_TRANSFERENCIAS,
     RECURSO_MEDICOS,
     RECURSO_PACIENTES,
+    RECURSO_RELATORIOS,
     pode_acessar,
     tem_permissao,
+)
+from gestao_hospitalar.relatorios_calculo import (
+    contagem_leitos,
+    internacoes_ativas as _calcular_internacoes_ativas,
 )
 from gestao_hospitalar.crm import crm_valido, formatar_crm, normalizar_crm
 from gestao_hospitalar.cpf import cpf_valido, normalizar_cpf
@@ -263,6 +268,22 @@ class AuthState(rx.State):
     @rx.var
     def pode_ver_internacoes(self) -> bool:
         return self._pode_acessar_recurso(RECURSO_INTERNACOES)
+
+    @rx.var
+    def pode_ver_relatorios(self) -> bool:
+        return self._pode_acessar_recurso(RECURSO_RELATORIOS)
+
+    @rx.var
+    def resumo_leitos(self) -> dict:
+        return contagem_leitos(self.leitos)
+
+    @rx.var
+    def lista_internacoes_ativas(self) -> list[dict]:
+        return _calcular_internacoes_ativas(self.internacoes)
+
+    @rx.var
+    def possui_internacoes_ativas(self) -> bool:
+        return bool(self.lista_internacoes_ativas)
 
     @rx.var
     def pode_cadastrar_internacoes(self) -> bool:

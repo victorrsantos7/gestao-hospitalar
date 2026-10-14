@@ -11,6 +11,7 @@ from gestao_hospitalar.medicos import medicos
 from gestao_hospitalar.internacoes import internacoes
 from gestao_hospitalar.historico import historico
 from gestao_hospitalar.pacientes import pacientes
+from gestao_hospitalar.relatorios import relatorios
 
 app = rx.App(stylesheets=["styles.css"], html_lang="pt-BR")
 app.add_page(login, route="/", title="Login")
@@ -50,4 +51,10 @@ app.add_page(
 	route="/historico",
 	title="Histórico do paciente",
 	on_load=AuthState.carregar_historico,
+)
+app.add_page(
+	relatorios,
+	route="/relatorios",
+	title="Relatórios",
+	on_load=AuthState.carregar_internacoes,
 )

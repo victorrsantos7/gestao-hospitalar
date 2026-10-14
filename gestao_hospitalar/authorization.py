@@ -43,6 +43,7 @@ PERMISSOES_POR_PAPEL: Final[dict[str, frozenset[str]]] = {
             RECURSO_LEITOS,
             RECURSO_TRANSFERENCIAS,
             RECURSO_HISTORICO,
+            RECURSO_RELATORIOS,
         }
     ),
     "admin": frozenset({"*"}),

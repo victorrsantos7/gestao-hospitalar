@@ -23,6 +23,7 @@ def _item_nav(rotulo: str, rota: str, nome_icone: str, permissao: str | None, ro
         icone(nome_icone, 18),
         rx.text(rotulo, size="2", weight="medium"),
         href=rota,
+        title=rotulo,
         underline="none",
         class_name="gh-nav-item gh-nav-item--ativo" if ativo else "gh-nav-item",
     )
@@ -89,6 +90,7 @@ def _conteudo_nav(rota_atual: str) -> rx.Component:
             size="3",
             width="100%",
             cursor="pointer",
+            title="Sair",
             class_name="gh-btn-sair",
         ),
         spacing="4",

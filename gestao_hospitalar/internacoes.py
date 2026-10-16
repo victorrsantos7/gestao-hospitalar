@@ -4,6 +4,7 @@ import reflex as rx
 
 from gestao_hospitalar.auth_state import AuthState
 from gestao_hospitalar.ui.componentes import (
+    grade_campos,
     bloqueado,
     acoes_tela,
     area_texto,
@@ -96,28 +97,30 @@ def formulario_internacao() -> rx.Component:
     return secao(
         "Registrar internação",
         "user_check",
-        selecao(
-            "Atendimento elegível",
-            AuthState.opcoes_atendimentos_internaveis,
-            AuthState.atendimento_id_internacao,
-            AuthState.set_atendimento_id_internacao,
-            "Selecione o atendimento",
-            obrigatorio=True,
-        ),
-        selecao(
-            "Leito livre",
-            AuthState.opcoes_leitos_livres,
-            AuthState.leito_id_internacao,
-            AuthState.set_leito_id_internacao,
-            "Selecione o leito",
-            obrigatorio=True,
-        ),
-        entrada(
-            "Data de entrada",
-            AuthState.data_entrada_internacao,
-            AuthState.set_data_entrada_internacao,
-            obrigatorio=True,
-            type="date",
+        grade_campos(
+            selecao(
+                "Atendimento elegível",
+                AuthState.opcoes_atendimentos_internaveis,
+                AuthState.atendimento_id_internacao,
+                AuthState.set_atendimento_id_internacao,
+                "Selecione o atendimento",
+                obrigatorio=True,
+            ),
+            selecao(
+                "Leito livre",
+                AuthState.opcoes_leitos_livres,
+                AuthState.leito_id_internacao,
+                AuthState.set_leito_id_internacao,
+                "Selecione o leito",
+                obrigatorio=True,
+            ),
+            entrada(
+                "Data de entrada",
+                AuthState.data_entrada_internacao,
+                AuthState.set_data_entrada_internacao,
+                obrigatorio=True,
+                type="date",
+            ),
         ),
         botao_acao(
             "Registrar internação",
@@ -327,9 +330,7 @@ def _aba_internacoes() -> rx.Component:
             AuthState.pode_cadastrar_internacoes,
             rx.box(
                 formulario_internacao(),
-                flex="1 1 300px",
-                max_width="340px",
-                min_width="0",
+                class_name="gh-form-col",
             ),
         ),
         rx.vstack(
@@ -347,7 +348,7 @@ def _aba_internacoes() -> rx.Component:
             historico_transferencias(),
             spacing="4",
             align="stretch",
-            flex="2 1 520px",
+            flex="2 1 760px",
             min_width="0",
         ),
         wrap="wrap",
@@ -363,9 +364,7 @@ def _aba_leitos() -> rx.Component:
             AuthState.pode_cadastrar_leitos,
             rx.box(
                 formulario_leito(),
-                flex="1 1 300px",
-                max_width="400px",
-                min_width="0",
+                class_name="gh-form-col",
             ),
         ),
         rx.box(painel_leitos(), flex="2 1 460px", min_width="0"),

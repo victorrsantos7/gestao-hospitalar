@@ -131,7 +131,7 @@ def confirmar(
     )
 
 
-def campo(rotulo: str, controle: rx.Component, obrigatorio: bool = False) -> rx.Component:
+def campo(rotulo: str, controle: rx.Component, obrigatorio: bool = False, largo: bool = False) -> rx.Component:
     """Rótulo permanente associado ao controle (o placeholder é só exemplo)."""
     cabecalho = [rx.text(rotulo, size="2", weight="medium", class_name="gh-rotulo")]
     if obrigatorio:
@@ -142,7 +142,13 @@ def campo(rotulo: str, controle: rx.Component, obrigatorio: bool = False) -> rx.
         spacing="1",
         align="start",
         width="100%",
+        class_name="gh-campo-largo" if largo else "",
     )
+
+
+def grade_campos(*campos) -> rx.Component:
+    """Campos em colunas que se ajustam à largura do cartão (uma coluna em cartão estreito)."""
+    return rx.box(*campos, class_name="gh-form-grade")
 
 
 def entrada(rotulo: str, valor, ao_mudar, placeholder: str = "", obrigatorio: bool = False, **props) -> rx.Component:
@@ -188,6 +194,7 @@ def area_texto(rotulo: str, valor, ao_mudar, placeholder: str = "", obrigatorio:
             **props,
         ),
         obrigatorio,
+        largo=True,
     )
 
 

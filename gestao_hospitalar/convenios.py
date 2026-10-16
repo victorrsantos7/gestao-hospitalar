@@ -4,6 +4,7 @@ import reflex as rx
 
 from gestao_hospitalar.auth_state import AuthState
 from gestao_hospitalar.ui.componentes import (
+    grade_campos,
     acoes_tela,
     badge_status,
     botao_acao,
@@ -26,29 +27,31 @@ def formulario_convenio() -> rx.Component:
     return secao(
         rx.cond(AuthState.editando_convenio, "Editar convênio", "Cadastrar convênio"),
         "shield_check",
-        entrada(
-            "Nome do convênio",
-            AuthState.nome_convenio,
-            AuthState.set_nome_convenio,
-            "Ex.: Saúde Total",
-            obrigatorio=True,
-            max_length=120,
-        ),
-        selecao(
-            "Tipo de convênio",
-            AuthState.tipos_convenio,
-            AuthState.tipo_convenio,
-            AuthState.set_tipo_convenio,
-            "Selecione o tipo",
-            obrigatorio=True,
-        ),
-        area_texto(
-            "Cobertura",
-            AuthState.cobertura_convenio,
-            AuthState.set_cobertura_convenio,
-            "Descreva a cobertura",
-            obrigatorio=True,
-            max_length=500,
+        grade_campos(
+            entrada(
+                "Nome do convênio",
+                AuthState.nome_convenio,
+                AuthState.set_nome_convenio,
+                "Ex.: Saúde Total",
+                obrigatorio=True,
+                max_length=120,
+            ),
+            selecao(
+                "Tipo de convênio",
+                AuthState.tipos_convenio,
+                AuthState.tipo_convenio,
+                AuthState.set_tipo_convenio,
+                "Selecione o tipo",
+                obrigatorio=True,
+            ),
+            area_texto(
+                "Cobertura",
+                AuthState.cobertura_convenio,
+                AuthState.set_cobertura_convenio,
+                "Descreva a cobertura",
+                obrigatorio=True,
+                max_length=500,
+            ),
         ),
         mensagem_erro(AuthState.erro_convenio),
         rx.hstack(
@@ -166,9 +169,7 @@ def convenios() -> rx.Component:
                 AuthState.pode_cadastrar_convenios,
                 rx.box(
                     formulario_convenio(),
-                    flex="1 1 300px",
-                    max_width="340px",
-                    min_width="0",
+                    class_name="gh-form-col",
                 ),
             ),
             rx.vstack(
@@ -185,7 +186,7 @@ def convenios() -> rx.Component:
                 detalhe_convenio(),
                 spacing="4",
                 align="stretch",
-                flex="2 1 460px",
+                flex="2 1 640px",
                 min_width="0",
             ),
             wrap="wrap",

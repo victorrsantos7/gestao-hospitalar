@@ -33,7 +33,7 @@
   --gh-sidebar-muted: #7f9fac;
   --gh-sidebar-hover: rgba(255, 255, 255, 0.07);
   --gh-sidebar-active: rgba(127, 211, 230, 0.16);
-  --gh-sidebar-w: 272px;
+  --gh-sidebar-w: 248px;
   --gh-radius: 12px;
   --gh-shadow-sm: 0 1px 2px rgba(10, 43, 55, 0.06), 0 1px 1px rgba(10, 43, 55, 0.04);
   --gh-shadow-md: 0 10px 28px rgba(10, 43, 55, 0.09);
@@ -151,6 +151,53 @@ body {
   .gh-conteudo { padding: 20px 16px 40px; }
 }
 
+/* ---- Formulários: campos em colunas conforme a largura do cartão -------- */
+.gh-form-col { flex: 1 1 300px; min-width: 0; }
+
+.gh-form-grade {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+  width: 100%;
+}
+
+.gh-form-grade .gh-campo-largo { grid-column: 1 / -1; }
+
+@media (min-width: 1500px) {
+  .gh-form-col { max-width: 380px; }
+}
+/* ---- Largura da tela: menu e conteúdo se adaptam ---------------------- */
+/* 1280-1535 px (inclui 1920 px com escala de 125%): menu um pouco mais estreito */
+@media (min-width: 1280px) and (max-width: 1535px) {
+  :root { --gh-sidebar-w: 224px; }
+  .gh-conteudo { padding: 20px 24px 36px; }
+}
+
+/* 901-1279 px (laptops pequenos, 1920 px com escala de 150%): menu vira trilho de ícones */
+@media (min-width: 901px) and (max-width: 1279px) {
+  :root { --gh-sidebar-w: 72px; }
+  .gh-sidebar { padding: 16px 10px; }
+  .gh-sidebar .gh-marca-nome,
+  .gh-sidebar .gh-marca-sub,
+  .gh-sidebar .gh-nav-secao,
+  .gh-sidebar .gh-nav-item .rt-Text,
+  .gh-sidebar .gh-usuario-nome,
+  .gh-sidebar .gh-usuario-papel { display: none; }
+  .gh-sidebar .gh-nav-item { justify-content: center; gap: 0; padding: 11px 0; }
+  .gh-sidebar .gh-avatar { margin: 0 auto; }
+  .gh-sidebar .gh-btn-sair { font-size: 0; gap: 0; padding-inline: 0; }
+  .gh-conteudo { padding: 20px 20px 32px; }
+}
+
+/* Monitores grandes: o conteúdo acompanha a tela em vez de ficar uma coluna estreita */
+@media (min-width: 1920px) {
+  .gh-conteudo { max-width: 1560px; }
+}
+
+@media (min-width: 2400px) {
+  .gh-conteudo { max-width: 1840px; }
+  .radix-themes[data-accent-color] { --scaling: 1.1; }
+}
 /* ---- Navegação lateral ----------------------------------------------- */
 .gh-marca-nome { color: #ffffff; }
 .gh-marca-sub { color: var(--gh-sidebar-muted); }

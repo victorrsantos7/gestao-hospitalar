@@ -106,6 +106,11 @@ Convenções para novas telas:
   declarar os campos da tela em `CAMPOS_LIMPEZA` para o botão **Limpar**.
 - **Atualizar** recarrega os dados do Xano; **Limpar** só esvazia a tela e não
   exclui nada no servidor.
+- Pontos de quebra (em largura CSS, já considerando a escala do Windows): menu de
+  248 px a partir de 1536 px, 224 px de 1280 a 1535 px, trilho de ícones de 901 a
+  1279 px e gaveta até 900 px. Formulários usam grade_campos e a classe
+  gh-form-col, e listas devem manter base larga para o formulário empilhar em
+  vez de cortar colunas.
 - O painel lê apenas totais (contagem do Xano, em paralelo, com cache de 60 s) e
   não mantém listas de pacientes no navegador.
 - Listas paginadas pelo Xano (pacientes e médicos) usam listar_*_pagina,

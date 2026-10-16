@@ -4,6 +4,7 @@ import reflex as rx
 
 from gestao_hospitalar.auth_state import AuthState
 from gestao_hospitalar.ui.componentes import (
+    grade_campos,
     paginacao,
     acoes_tela,
     botao_acao,
@@ -24,38 +25,40 @@ def formulario_medico() -> rx.Component:
     return secao(
         "Cadastrar ou editar médico",
         "stethoscope",
-        entrada(
-            "Nome completo",
-            AuthState.nome_medico,
-            AuthState.set_nome_medico,
-            "Ex.: Dr. João Pereira",
-            obrigatorio=True,
-            max_length=120,
-        ),
-        entrada(
-            "CRM",
-            AuthState.crm_medico,
-            AuthState.set_crm_medico,
-            "0000000/UF",
-            obrigatorio=True,
-            max_length=12,
-        ),
-        entrada(
-            "Especialidade",
-            AuthState.especialidade_medico,
-            AuthState.set_especialidade_medico,
-            "Ex.: Cardiologia",
-            obrigatorio=True,
-            max_length=80,
-        ),
-        entrada(
-            "Telefone",
-            AuthState.telefone_medico,
-            AuthState.set_telefone_medico,
-            "(00) 00000-0000",
-            obrigatorio=True,
-            type="tel",
-            max_length=15,
+        grade_campos(
+            entrada(
+                "Nome completo",
+                AuthState.nome_medico,
+                AuthState.set_nome_medico,
+                "Ex.: Dr. João Pereira",
+                obrigatorio=True,
+                max_length=120,
+            ),
+            entrada(
+                "CRM",
+                AuthState.crm_medico,
+                AuthState.set_crm_medico,
+                "0000000/UF",
+                obrigatorio=True,
+                max_length=12,
+            ),
+            entrada(
+                "Especialidade",
+                AuthState.especialidade_medico,
+                AuthState.set_especialidade_medico,
+                "Ex.: Cardiologia",
+                obrigatorio=True,
+                max_length=80,
+            ),
+            entrada(
+                "Telefone",
+                AuthState.telefone_medico,
+                AuthState.set_telefone_medico,
+                "(00) 00000-0000",
+                obrigatorio=True,
+                type="tel",
+                max_length=15,
+            ),
         ),
         mensagem_erro(AuthState.erro_medico),
         botao_acao(
@@ -168,9 +171,7 @@ def medicos() -> rx.Component:
                 AuthState.pode_cadastrar_medicos,
                 rx.box(
                     formulario_medico(),
-                    flex="1 1 300px",
-                    max_width="340px",
-                    min_width="0",
+                    class_name="gh-form-col",
                 ),
             ),
             rx.vstack(
@@ -196,7 +197,7 @@ def medicos() -> rx.Component:
                 detalhe_medico(),
                 spacing="4",
                 align="stretch",
-                flex="2 1 460px",
+                flex="2 1 600px",
                 min_width="0",
             ),
             wrap="wrap",

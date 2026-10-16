@@ -1,7 +1,8 @@
 param(
     [switch]$SkipTests,
     [switch]$SkipCompile,
-    [int]$Port = 3000
+    [int]$Port = 3000,
+    [string]$DatabasePath = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -65,12 +66,24 @@ if ($null -ne $listener) {
 }
 Write-Step "Porta $Port livre."
 
-$databasePath = Join-Path $repo "gestao_hospitalar.db"
-& $python -c "import sqlite3, sys; c=sqlite3.connect(sys.argv[1]); row=c.execute('SELECT version_num FROM alembic_version').fetchone(); c.close(); raise SystemExit(0 if row == ('d21af3eecf55',) else 1)" $databasePath
-if ($LASTEXITCODE -ne 0) {
-    throw "Banco local fora da revisao esperada. Faca backup e consulte docs\migracoes-locais.md."
+$expectedRevision = (
+    & $python -c "from alembic.config import Config; from alembic.script import ScriptDirectory; print(ScriptDirectory.from_config(Config('alembic.ini')).get_current_head())"
+).Trim()
+if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($expectedRevision)) {
+    throw "Nao foi possivel determinar o head Alembic versionado."
 }
-& $python -c "from alembic.config import Config; from alembic.script import ScriptDirectory; raise SystemExit(0 if ScriptDirectory.from_config(Config('alembic.ini')).get_current_head() == 'd21af3eecf55' else 1)"
+
+if ([string]::IsNullOrWhiteSpace($DatabasePath)) {
+    $databasePath = Join-Path $repo "gestao_hospitalar.db"
+} else {
+    $databasePath = (Resolve-Path $DatabasePath).Path
+}
+
+& $python -c "import sqlite3, sys; c=sqlite3.connect(sys.argv[1]); revision=c.execute('SELECT version_num FROM alembic_version').fetchone(); usuario=c.execute('SELECT 1 FROM sqlite_master WHERE type=? AND name=?', ('table', 'usuario')).fetchone(); c.close(); raise SystemExit(0 if revision == (sys.argv[2],) and usuario is None else 1)" $databasePath $expectedRevision
+if ($LASTEXITCODE -ne 0) {
+    throw "Banco local fora da revisao esperada ou ainda contem a tabela usuario. Execute: .\.venv\Scripts\alembic.exe upgrade head"
+}
+& $python -c "from alembic.config import Config; from alembic.script import ScriptDirectory; import sys; raise SystemExit(0 if ScriptDirectory.from_config(Config('alembic.ini')).get_current_head() == sys.argv[1] else 1)" $expectedRevision
 if ($LASTEXITCODE -ne 0) {
     throw "Historico Alembic inconsistente."
 }

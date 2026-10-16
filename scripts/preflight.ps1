@@ -1,8 +1,7 @@
 param(
     [switch]$SkipTests,
     [switch]$SkipCompile,
-    [int]$Port = 3000,
-    [string]$DatabasePath = ""
+    [int]$Port = 3000
 )
 
 $ErrorActionPreference = "Stop"
@@ -65,29 +64,6 @@ if ($null -ne $listener) {
     throw "Porta $Port ocupada pelo PID $($listener.OwningProcess) ($processName). Use Get-Process -Id $($listener.OwningProcess) para diagnosticar; nenhum processo foi encerrado."
 }
 Write-Step "Porta $Port livre."
-
-$expectedRevision = (
-    & $python -c "from alembic.config import Config; from alembic.script import ScriptDirectory; print(ScriptDirectory.from_config(Config('alembic.ini')).get_current_head())"
-).Trim()
-if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($expectedRevision)) {
-    throw "Nao foi possivel determinar o head Alembic versionado."
-}
-
-if ([string]::IsNullOrWhiteSpace($DatabasePath)) {
-    $databasePath = Join-Path $repo "gestao_hospitalar.db"
-} else {
-    $databasePath = (Resolve-Path $DatabasePath).Path
-}
-
-& $python -c "import sqlite3, sys; c=sqlite3.connect(sys.argv[1]); revision=c.execute('SELECT version_num FROM alembic_version').fetchone(); usuario=c.execute('SELECT 1 FROM sqlite_master WHERE type=? AND name=?', ('table', 'usuario')).fetchone(); c.close(); raise SystemExit(0 if revision == (sys.argv[2],) and usuario is None else 1)" $databasePath $expectedRevision
-if ($LASTEXITCODE -ne 0) {
-    throw "Banco local fora da revisao esperada ou ainda contem a tabela usuario. Execute: .\.venv\Scripts\alembic.exe upgrade head"
-}
-& $python -c "from alembic.config import Config; from alembic.script import ScriptDirectory; import sys; raise SystemExit(0 if ScriptDirectory.from_config(Config('alembic.ini')).get_current_head() == sys.argv[1] else 1)" $expectedRevision
-if ($LASTEXITCODE -ne 0) {
-    throw "Historico Alembic inconsistente."
-}
-Write-Step "Migracoes locais alinhadas."
 
 if (-not $SkipTests) {
     & $python -m unittest discover -s tests

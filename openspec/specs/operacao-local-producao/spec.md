@@ -10,17 +10,17 @@ recuperada de forma previsível e segura no computador usado na apresentação.
 ### Requirement: Verificação prévia da apresentação
 
 O sistema MUST oferecer uma verificação local reproduzível que valide ambiente
-Python, dependências, configuração obrigatória, migrações, testes, compilação,
-porta de execução e conectividade com o Xano antes de iniciar a apresentação.
-A verificação MUST falhar com mensagem acionável quando um requisito essencial
-não estiver pronto.
+Python, dependências, configuração obrigatória, testes, compilação, porta de
+execução e conectividade com o Xano antes de iniciar a apresentação. A
+verificação MUST falhar com mensagem acionável quando um requisito essencial
+não estiver pronto e MUST NOT exigir banco de dados ou migração local.
 
 #### Scenario: Ambiente pronto
-- **WHEN** o operador executa a verificação com ambiente, configuração, banco e Xano disponíveis
-- **THEN** o sistema confirma cada etapa e informa que a aplicação está pronta para iniciar
+- **WHEN** o operador executa a verificação com ambiente, configuração e Xano disponíveis
+- **THEN** o sistema confirma cada etapa e informa que a aplicação está pronta para iniciar sem criar ou consultar banco local
 
 #### Scenario: Configuração ou dependência ausente
-- **WHEN** a verificação encontra variável obrigatória, pacote, migração ou porta em estado inválido
+- **WHEN** a verificação encontra variável obrigatória, pacote ou porta em estado inválido
 - **THEN** o sistema encerra com falha e informa exatamente como corrigir o item
 
 #### Scenario: Execução restrita ao computador local
@@ -41,32 +41,6 @@ funcional e registrar a evidência da decisão.
 #### Scenario: Nova versão incompatível
 - **WHEN** qualquer teste, compilação ou smoke test falha com a versão candidata
 - **THEN** o projeto mantém a versão atual e documenta o erro sem comprometer o ambiente de apresentação
-
-### Requirement: Migração local consistente
-
-O sistema MUST manter as migrações Alembic alinhadas ao banco SQLite
-configurado no Reflex, sem migrações vazias ou alterações destrutivas não
-revisadas. O schema local atualizado MUST estar na revisão versionada mais
-recente e não MUST conter a tabela legada `usuario` nem seu índice. A remoção
-dos registros dessa tabela MUST ocorrer sem backup, conforme decisão explícita
-do responsável pelo ambiente. A verificação MUST identificar divergência entre
-o histórico aplicado e os scripts versionados antes da apresentação.
-
-#### Scenario: Banco local criado do zero
-- **WHEN** um banco vazio recebe todas as migrações versionadas até a revisão mais recente
-- **THEN** a revisão é registrada e a tabela `usuario` e seu índice não existem
-
-#### Scenario: Banco local atualizado da revisão anterior
-- **WHEN** um banco na revisão `d21af3eecf55` contém a tabela legada `usuario` e recebe a nova migração
-- **THEN** todos os registros locais de usuário são descartados, a tabela e o índice são removidos sem backup e a revisão mais recente é registrada
-
-#### Scenario: Banco local atualizado
-- **WHEN** o operador verifica um banco na revisão mais recente e sem a tabela `usuario`
-- **THEN** o sistema confirma que não há revisão pendente nem mudança destrutiva inesperada
-
-#### Scenario: Banco local divergente
-- **WHEN** o banco está em outra revisão ou ainda contém a tabela `usuario`
-- **THEN** a verificação bloqueia a inicialização orientada e indica a aplicação da migração versionada
 
 ### Requirement: Integração real e não destrutiva com Xano
 
@@ -116,22 +90,22 @@ permitidos e não MUST registrar senhas, tokens ou dados pessoais sensíveis.
 ### Requirement: Backup e restauração verificáveis
 
 O projeto MUST oferecer backup versionado por data, salvo fora dos arquivos
-rastreados pelo Git, com banco SQLite, referência do commit, dependências,
-configuração sem segredos e export do workspace Xano. O procedimento MUST
-possuir verificação de integridade e instruções de restauração testadas com
-dados não sensíveis.
+rastreados pelo Git, com referência do commit, dependências, configuração sem
+segredos e export do workspace Xano. O procedimento MUST possuir verificação de
+integridade e instruções de restauração testadas com dados não sensíveis e MUST
+NOT exigir nem incluir banco de dados local.
 
 #### Scenario: Backup criado
 - **WHEN** o operador executa o procedimento antes da apresentação
-- **THEN** o sistema cria um pacote identificado por data com manifesto e hashes dos arquivos incluídos
+- **THEN** o sistema cria um pacote identificado por data com manifesto, hashes, metadados do repositório e export do Xano
 
 #### Scenario: Segredo excluído do backup
 - **WHEN** o pacote é inspecionado
-- **THEN** ele não contém `.env`, senhas, tokens, logs nem credenciais do Xano
+- **THEN** ele não contém `.env`, bancos locais, senhas, tokens, logs nem credenciais do Xano
 
 #### Scenario: Restauração ensaiada
 - **WHEN** um backup de teste é restaurado em diretório temporário
-- **THEN** os arquivos passam na verificação de integridade e o roteiro informa como recuperar o ambiente
+- **THEN** os arquivos passam na verificação de integridade sem depender de validação SQLite e o roteiro informa como recuperar o ambiente
 
 ### Requirement: Inicialização e recuperação local documentadas
 

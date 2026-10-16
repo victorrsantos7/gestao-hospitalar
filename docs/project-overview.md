@@ -77,9 +77,9 @@ consultas, integração com sistemas externos e emissão de documentos legais.
 - **Stack**: Reflex (Python full-stack) — frontend e backend implementados
   na mesma base de código Python, sem tecnologias adicionais de frontend
   (nada de HTML/JS/templates separados).
-- **Persistência**: Xano como backend remoto para os fluxos migrados,
-  consumido por um adaptador HTTP no backend Reflex. O SQLite permanece
-  configurado somente para modelos e fluxos locais ainda não migrados.
+- **Persistência**: Xano como backend remoto exclusivo, consumido por um
+  adaptador HTTP no backend Reflex. A aplicação não mantém banco local nem
+  fallback de persistência.
 - **Padrão**: organização por `State` (`rx.State`) e `Components` do
   Reflex, substituindo o padrão MVC tradicional.
 
@@ -95,7 +95,8 @@ consultas, integração com sistemas externos e emissão de documentos legais.
 - Validação de entradas no backend.
 - Regras de autorização aplicadas no backend.
 - Proteção de dados sensíveis dos pacientes.
-- Integridade referencial garantida pelo banco relacional.
+- Integridade dos relacionamentos garantida pelas regras do backend e pelo
+  schema remoto do Xano.
 
 ## 11. Estratégia de desenvolvimento
 
@@ -115,8 +116,8 @@ médicos, convênios, atendimentos, internações e transferências.
 
 ## 13. Integração Xano
 
-O login e o cadastro de pacientes usam o grupo de API protegido do Xano. A
+O login e todos os fluxos de domínio usam APIs protegidas do Xano. A
 autenticação remota devolve apenas o identificador, o papel e o token da
 sessão; a senha permanece sob responsabilidade do recurso de autenticação do
-Xano. O cliente HTTP não faz fallback silencioso para o SQLite e não repete
-automaticamente escritas cujo resultado seja desconhecido.
+Xano. O cliente HTTP não possui fallback local e não repete automaticamente
+escritas cujo resultado seja desconhecido.

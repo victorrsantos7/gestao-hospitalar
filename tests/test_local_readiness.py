@@ -4,6 +4,9 @@ from rxconfig import config
 
 
 class LocalReadinessTests(unittest.TestCase):
+    def test_reflex_has_no_local_database(self) -> None:
+        self.assertIsNone(config.db_url)
+
     def test_reflex_is_bound_to_loopback(self) -> None:
         self.assertEqual(config.backend_host, "127.0.0.1")
 

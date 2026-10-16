@@ -14,25 +14,15 @@ if ($destinationParent.StartsWith($repoPrefix, [System.StringComparison]::Ordina
 $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
 $backup = Join-Path $destinationParent "gestao-hospitalar-$timestamp"
 $configDirectory = Join-Path $backup "config"
-$alembicDirectory = Join-Path $configDirectory "alembic"
 $gitDirectory = Join-Path $backup "git"
 $xanoDirectory = Join-Path $backup "xano-workspace"
 
-New-Item -ItemType Directory -Force -Path $alembicDirectory, $gitDirectory | Out-Null
-New-Item -ItemType Directory -Force -Path (Join-Path $alembicDirectory "versions") | Out-Null
+New-Item -ItemType Directory -Force -Path $configDirectory, $gitDirectory | Out-Null
 Set-Location $repo
-
-$database = Join-Path $repo "gestao_hospitalar.db"
-if (Test-Path $database) {
-    Copy-Item $database (Join-Path $backup "gestao_hospitalar.db")
-}
 
 Copy-Item (Join-Path $repo "requirements.txt") (Join-Path $configDirectory "requirements.txt")
 Copy-Item (Join-Path $repo "rxconfig.py") (Join-Path $configDirectory "rxconfig.py")
-Copy-Item (Join-Path $repo "alembic.ini") (Join-Path $configDirectory "alembic.ini")
 Copy-Item (Join-Path $repo ".env.example") (Join-Path $configDirectory ".env.example")
-Get-ChildItem (Join-Path $repo "alembic\versions") -File -Filter "*.py" |
-    Copy-Item -Destination (Join-Path $alembicDirectory "versions")
 
 git rev-parse HEAD | Set-Content -Encoding ASCII (Join-Path $gitDirectory "commit.txt")
 git status --short | Set-Content -Encoding UTF8 (Join-Path $gitDirectory "status.txt")
@@ -49,7 +39,7 @@ if ($LASTEXITCODE -ne 0) {
 
 $forbidden = Get-ChildItem $backup -Recurse -File | Where-Object {
     $_.Name -eq ".env" -or
-    $_.Extension -in @(".log", ".pyc") -or
+    $_.Extension -in @(".db", ".log", ".pyc") -or
     $_.FullName -match "\\(__pycache__|\.venv|\.web)\\"
 }
 if ($forbidden) {

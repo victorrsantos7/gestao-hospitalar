@@ -105,8 +105,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\restaurar_backup.p
   -RestorePath "D:\Restauracao-Teste"
 ```
 
-O script valida todos os hashes e executa `PRAGMA quick_check` no SQLite. O
-workspace Xano exportado não é republicado automaticamente.
+O script valida todos os hashes antes de copiar o conteúdo. O workspace Xano
+exportado não é republicado automaticamente.
 
 ## 6. Limite do backup do Xano
 

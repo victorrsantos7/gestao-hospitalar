@@ -42,7 +42,5 @@ funcionais atualmente presentes. Essa divergência pré-existente não foi
 restaurada automaticamente nesta change e precisa ser resolvida antes de o
 preflight final ser aprovado.
 
-A documentação atual também informa que `rx.Model` está depreciado desde
-0.9.2 e previsto para remoção na versão 1.0. O projeto não deve introduzir novos
-modelos baseados nessa API; o SQLite legado deve ser tratado conforme
-[migrações locais](./migracoes-locais.md).
+A persistência do projeto é exclusivamente remota no Xano. A aplicação não
+utiliza `rx.Model`, banco SQLite local ou infraestrutura Alembic.

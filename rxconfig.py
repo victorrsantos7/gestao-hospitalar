@@ -4,7 +4,6 @@ from gestao_hospitalar.ui.tema import tema_app
 
 config = rx.Config(
     app_name="gestao_hospitalar",
-    db_url="sqlite:///gestao_hospitalar.db",
     backend_host="127.0.0.1",
     env_file=".env",
     plugins=[

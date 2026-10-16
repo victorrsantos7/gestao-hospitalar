@@ -74,9 +74,9 @@ consultados antes de qualquer mudança significativa.
 ## Arquitetura
 
 - Respeitar a stack definida no projeto: Reflex (Python full-stack) para
-  frontend e backend, com persistência via modelos Reflex (`rx.Model`) em
-  banco relacional (SQLite em desenvolvimento, com possibilidade de
-  migração para MySQL).
+  frontend e backend, com persistência remota exclusivamente via API do Xano.
+  Não introduzir banco local, `rx.Model` ou fallback de persistência sem uma
+  mudança arquitetural explícita.
 - Reflex é a tecnologia exclusiva do projeto. Não introduzir Flask, Jinja2
   ou qualquer outra tecnologia de frontend/backend sem justificativa clara
   e aprovação do grupo.
@@ -97,7 +97,7 @@ consultados antes de qualquer mudança significativa.
 ## Banco de dados
 
 - O modelo conceitual é global (ver `docs/domain-model.md`), mas a
-  implementação física deve ser incremental, change por change.
+  implementação física no Xano deve ser incremental, change por change.
 - Respeitar os relacionamentos definidos no modelo de domínio.
 - Não criar tabelas fora do escopo da mudança atual.
 

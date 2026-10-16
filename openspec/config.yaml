@@ -7,15 +7,15 @@ context: |
   diagnósticos, controle de internações e leitos, e rastreamento de
   transferências.
   Tech stack:
-    Reflex (Python full-stack) e banco relacional (SQLite em
-    desenvolvimento, com possibilidade de migração para MySQL). Reflex é a
-    tecnologia exclusiva do projeto: não há Flask, Jinja2 nem outro
-    framework de frontend.
+    Reflex (Python full-stack) com persistência remota exclusivamente via
+    API do Xano. Reflex é a tecnologia exclusiva do projeto: não há Flask,
+    Jinja2 nem outro framework de frontend.
   Architecture:
-    Backend responsável pelas regras de negócio e persistência via
-    modelos Reflex (rx.Model). UI organizada em State (rx.State) e
-    Components do Reflex. Não introduzir outra tecnologia de frontend ou
-    backend sem uma mudança explícita da decisão arquitetural.
+    Backend Reflex responsável pelas regras de negócio, autorização e
+    integração HTTP com o Xano. UI organizada em State (rx.State) e
+    Components do Reflex. Não existe banco local nem fallback de
+    persistência. Não introduzir outra tecnologia de frontend, backend ou
+    persistência sem uma mudança explícita da decisão arquitetural.
   Security:
     Validação de entradas e regras de autorização aplicadas no backend.
     Proteger dados sensíveis dos pacientes.

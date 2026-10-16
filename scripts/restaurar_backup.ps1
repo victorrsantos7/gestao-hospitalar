@@ -43,16 +43,4 @@ Get-ChildItem $backup -Force | Where-Object { $_.Name -ne "SHA256SUMS.txt" } |
     Copy-Item -Destination $restore -Recurse -Force
 Copy-Item $manifestPath (Join-Path $restore "SHA256SUMS.txt")
 
-$database = Join-Path $restore "gestao_hospitalar.db"
-if (Test-Path $database) {
-    $python = Join-Path $repo ".venv\Scripts\python.exe"
-    if (-not (Test-Path $python)) {
-        throw "Python local necessario para validar o SQLite restaurado."
-    }
-    & $python -c "import sqlite3, sys; c=sqlite3.connect(sys.argv[1]); result=c.execute('PRAGMA quick_check').fetchone()[0]; c.close(); print(result); raise SystemExit(0 if result == 'ok' else 1)" $database
-    if ($LASTEXITCODE -ne 0) {
-        throw "SQLite restaurado falhou no PRAGMA quick_check."
-    }
-}
-
 Write-Host "Restauracao ensaiada e validada em: $restore"

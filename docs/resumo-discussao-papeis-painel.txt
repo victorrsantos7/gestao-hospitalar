@@ -1,5 +1,8 @@
 RESUMO PARA DISCUSSAO COM O GRUPO - PAPEIS DE USUARIO E PAINEL ADMINISTRATIVO
 Data: 2026-10-08
+REGISTRO HISTORICO: as referencias a SQLite/SQLModel abaixo descrevem a
+arquitetura anterior. A decisao registrada na secao 6 foi implementada e o
+Xano e a persistencia exclusiva atual.
 
 1. CONTEXTO
 -----------

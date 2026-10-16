@@ -123,5 +123,5 @@ consultados antes de qualquer mudança significativa.
 ## Git
 
 - Manter commits pequenos e descritivos.
-- Não commitar o banco de dados local (`database.db`) nem o ambiente virtual
+- Não criar nem commitar bancos de dados locais (`*.db`) ou o ambiente virtual
   (`.venv/`).

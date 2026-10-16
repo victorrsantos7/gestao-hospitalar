@@ -81,6 +81,11 @@ class UsuarioRemoto:
     auth_token: str
 
 
+POR_PAGINA_PADRAO = 25
+POR_PAGINA_REFERENCIA = 100
+LIMITE_REGISTROS_REFERENCIA = 2000
+
+
 class XanoClient:
     """Acesso aos endpoints do Xano sem acoplar o State ao transporte HTTP."""
 
@@ -183,6 +188,81 @@ class XanoClient:
             return XanoClient._extract_records(payload["items"])
         raise XanoResponseError("Resposta invalida do Xano.")
 
+    def _listar_pagina(
+        self,
+        path: str,
+        auth_token: str,
+        page: int,
+        per_page: int,
+    ) -> tuple[list[dict[str, Any]], int | None]:
+        """Uma página e o total do Xano (None se o endpoint não for paginado).
+
+        A primeira página padrão não envia parâmetros, mantendo o contrato já
+        validado com o Xano.
+        """
+        response = self._request(
+            "GET",
+            path,
+            auth_token=auth_token,
+            params=(
+                {"page": page, "per_page": per_page}
+                if (page, per_page) != (1, POR_PAGINA_PADRAO)
+                else None
+            ),
+        )
+        self._raise_for_status(response)
+        payload = self._json(response)
+        total = None
+        if isinstance(payload, dict):
+            valor = payload.get("itemsTotal")
+            if isinstance(valor, int) and not isinstance(valor, bool):
+                total = valor
+        return self._extract_records(payload), total
+
+    def _listar_todos(self, path: str, auth_token: str) -> list[dict[str, Any]]:
+        """Percorre as páginas (limite de segurança) para listas de referência."""
+        todos: list[dict[str, Any]] = []
+        primeiro_anterior = None
+        page = 1
+        while len(todos) < LIMITE_REGISTROS_REFERENCIA:
+            registros, total = self._listar_pagina(
+                path, auth_token, page, POR_PAGINA_REFERENCIA
+            )
+            if not registros or registros[0] == primeiro_anterior:
+                break
+            todos.extend(registros)
+            primeiro_anterior = registros[0]
+            if total is not None:
+                if len(todos) >= total:
+                    break
+            elif len(registros) < POR_PAGINA_REFERENCIA:
+                break
+            page += 1
+        return todos[:LIMITE_REGISTROS_REFERENCIA]
+
+    def _contar(self, path: str, auth_token: str) -> int:
+        """Total de registros sem baixar a lista: usa o total da paginação do Xano.
+
+        Se o endpoint não for paginado (ou ignorar per_page), cai na lista
+        completa, que é a única forma de contar nesse caso.
+        """
+        registros, total = self._listar_pagina(path, auth_token, 1, 1)
+        if total is not None:
+            return total
+        if len(registros) > 1:
+            return len(registros)
+        registros, _ = self._listar_pagina(path, auth_token, 1, POR_PAGINA_PADRAO)
+        return len(registros)
+
+    def contar_pacientes(self, auth_token: str) -> int:
+        return self._contar("/patients", auth_token)
+
+    def contar_medicos(self, auth_token: str) -> int:
+        return self._contar("/doctors", auth_token)
+
+    def contar_atendimentos(self, auth_token: str) -> int:
+        return self._contar("/atendimentos", auth_token)
+
     def login(self, login: str, senha: str) -> UsuarioRemoto:
         response = self._request(
             "POST",
@@ -243,24 +323,16 @@ class XanoClient:
         except (KeyError, TypeError, ValueError) as error:
             raise XanoResponseError("Resposta invalida do Xano.") from error
 
-    def listar_medicos(
+    def listar_medicos_pagina(
         self,
         auth_token: str,
         page: int = 1,
-        per_page: int = 25,
-    ) -> list[dict[str, Any]]:
-        response = self._request(
-            "GET",
-            "/doctors",
-            auth_token=auth_token,
-            params=(
-                {"page": page, "per_page": per_page}
-                if (page, per_page) != (1, 25)
-                else None
-            ),
-        )
-        self._raise_for_status(response)
-        return self._extract_records(self._json(response))
+        per_page: int = POR_PAGINA_PADRAO,
+    ) -> tuple[list[dict[str, Any]], int | None]:
+        return self._listar_pagina("/doctors", auth_token, page, per_page)
+
+    def listar_todos_medicos(self, auth_token: str) -> list[dict[str, Any]]:
+        return self._listar_todos("/doctors", auth_token)
 
     def consultar_medico(
         self,
@@ -277,32 +349,6 @@ class XanoClient:
         if not isinstance(payload, dict):
             raise XanoResponseError("Resposta invalida do Xano.")
         return payload
-
-    def atualizar_medico(
-        self,
-        auth_token: str,
-        medico_id: int,
-        dados: dict[str, str],
-    ) -> None:
-        response = self._request(
-            "PATCH",
-            f"/doctors/{medico_id}",
-            auth_token=auth_token,
-            json=dados,
-        )
-        self._raise_for_status(response)
-
-    def excluir_medico(
-        self,
-        auth_token: str,
-        medico_id: int,
-    ) -> None:
-        response = self._request(
-            "DELETE",
-            f"/doctors/{medico_id}",
-            auth_token=auth_token,
-        )
-        self._raise_for_status(response)
 
     def criar_convenio(
         self,
@@ -376,31 +422,23 @@ class XanoClient:
         )
         self._raise_for_status(response)
 
-    def listar_pacientes(
+    def listar_pacientes_pagina(
         self,
         auth_token: str,
         page: int = 1,
-        per_page: int = 25,
-    ) -> list[dict[str, Any]]:
-        response = self._request(
-            "GET",
-            "/patients",
-            auth_token=auth_token,
-            params=(
-                {"page": page, "per_page": per_page}
-                if (page, per_page) != (1, 25)
-                else None
-            ),
-        )
-        self._raise_for_status(response)
-        payload = self._json(response)
-        records = self._extract_records(payload)
+        per_page: int = POR_PAGINA_PADRAO,
+    ) -> tuple[list[dict[str, Any]], int | None]:
+        registros, total = self._listar_pagina("/patients", auth_token, page, per_page)
         logger.info(
-            "xano_patient_list payload_type=%s record_count=%s",
-            type(payload).__name__,
-            len(records),
+            "xano_patient_list page=%s record_count=%s total=%s",
+            page,
+            len(registros),
+            total,
         )
-        return records
+        return registros, total
+
+    def listar_todos_pacientes(self, auth_token: str) -> list[dict[str, Any]]:
+        return self._listar_todos("/patients", auth_token)
 
     def consultar_paciente(
         self,
@@ -417,32 +455,6 @@ class XanoClient:
         if not isinstance(payload, dict):
             raise XanoResponseError("Resposta invalida do Xano.")
         return payload
-
-    def atualizar_paciente(
-        self,
-        auth_token: str,
-        paciente_id: int,
-        dados: dict[str, str],
-    ) -> None:
-        response = self._request(
-            "PATCH",
-            f"/patients/{paciente_id}",
-            auth_token=auth_token,
-            json=dados,
-        )
-        self._raise_for_status(response)
-
-    def excluir_paciente(
-        self,
-        auth_token: str,
-        paciente_id: int,
-    ) -> None:
-        response = self._request(
-            "DELETE",
-            f"/patients/{paciente_id}",
-            auth_token=auth_token,
-        )
-        self._raise_for_status(response)
 
     def criar_atendimento(
         self,
@@ -519,32 +531,6 @@ class XanoClient:
         if not isinstance(payload, dict):
             raise XanoResponseError("Resposta invalida do Xano.")
         return self._normalizar_atendimento(payload)
-
-    def atualizar_atendimento(
-        self,
-        auth_token: str,
-        atendimento_id: int,
-        dados: dict[str, Any],
-    ) -> None:
-        response = self._request(
-            "PATCH",
-            f"/atendimentos/{atendimento_id}",
-            auth_token=auth_token,
-            json=dados,
-        )
-        self._raise_for_status(response)
-
-    def excluir_atendimento(
-        self,
-        auth_token: str,
-        atendimento_id: int,
-    ) -> None:
-        response = self._request(
-            "DELETE",
-            f"/atendimentos/{atendimento_id}",
-            auth_token=auth_token,
-        )
-        self._raise_for_status(response)
 
     def listar_atendimentos_internaveis(
         self,

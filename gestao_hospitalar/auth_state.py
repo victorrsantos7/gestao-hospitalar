@@ -1,5 +1,8 @@
 """Estado de autenticação do Sistema de Gestão Hospitalar."""
 
+import time
+from concurrent.futures import ThreadPoolExecutor
+
 import reflex as rx
 
 from gestao_hospitalar.authorization import (
@@ -11,25 +14,22 @@ from gestao_hospitalar.authorization import (
     RECURSO_INTERNACOES,
     RECURSO_LEITOS,
     RECURSO_HISTORICO,
+    RECURSO_RELATORIOS,
     RECURSO_TRANSFERENCIAS,
     RECURSO_MEDICOS,
     RECURSO_PACIENTES,
-    RECURSO_RELATORIOS,
     pode_acessar,
     tem_permissao,
 )
-from gestao_hospitalar.relatorios_calculo import (
-    contagem_leitos,
-    internacoes_ativas as _calcular_internacoes_ativas,
-)
+from gestao_hospitalar.busca import filtrar_registros
 from gestao_hospitalar.crm import crm_valido, formatar_crm, normalizar_crm
 from gestao_hospitalar.cpf import cpf_valido, normalizar_cpf
-from gestao_hospitalar.data_br import (
-    data_br_para_iso,
-    data_iso_para_br,
-    formatar_data_br,
-)
 from gestao_hospitalar.logging_config import get_logger
+from gestao_hospitalar.relatorios_calculo import (
+    InternacaoAtiva,
+    contagem_leitos,
+    internacoes_ativas as calcular_internacoes_ativas,
+)
 from gestao_hospitalar.validacao_convenios import (
     TIPOS_CONVENIO,
     nome_convenio_valido,
@@ -74,6 +74,7 @@ from gestao_hospitalar.validacao_pacientes import (
     telefone_valido,
 )
 from gestao_hospitalar.xano_client import (
+    POR_PAGINA_PADRAO,
     XanoAuthenticationError,
     XanoClient,
     XanoConfig,
@@ -83,6 +84,148 @@ from gestao_hospitalar.xano_client import (
 
 
 logger = get_logger("auth_state")
+
+VALIDADE_PAINEL_SEGUNDOS = 60
+
+
+CAMPOS_FEEDBACK: dict[str, tuple[str, str | None]] = {
+    "login": ("erro", None),
+    "paciente": ("erro_paciente", "sucesso_paciente"),
+    "medico": ("erro_medico", "sucesso_medico"),
+    "convenio": ("erro_convenio", "sucesso_convenio"),
+    "atendimento": ("erro_atendimento", "sucesso_atendimento"),
+    "diagnostico": ("erro_diagnostico", "sucesso_diagnostico"),
+    "leito": ("erro_leito", "sucesso_leito"),
+    "internacao": ("erro_internacao", "sucesso_internacao"),
+    "transferencia": ("erro_transferencia", "sucesso_transferencia"),
+    "historico": ("erro_historico", None),
+    "painel": ("erro_painel", None),
+    "relatorio": ("erro_internacao", None),
+}
+
+CAMPOS_LIMPEZA: dict[str, dict[str, object]] = {
+    "painel": {
+        "painel_pacientes": -1,
+        "painel_medicos": -1,
+        "painel_atendimentos": -1,
+        "painel_leitos_livres": -1,
+        "painel_leitos_ocupados": -1,
+        "painel_internacoes_ativas": -1,
+        "painel_atualizado_em": "",
+        "erro_painel": "",
+    },
+    "pacientes": {
+        "pacientes": [],
+        "paciente_selecionado": {},
+        "nome_paciente": "",
+        "cpf_paciente": "",
+        "pagina_pacientes": 1,
+        "total_paginas_pacientes": 1,
+        "total_registros_pacientes": 0,
+        "nascimento_paciente": "",
+        "telefone_paciente": "",
+        "endereco_paciente": "",
+        "emergencia_paciente": "",
+        "erro_paciente": "",
+        "sucesso_paciente": "",
+        "termo_busca": "",
+    },
+    "medicos": {
+        "medicos": [],
+        "medico_selecionado": {},
+        "id_medico_edicao": "",
+        "pagina_medicos": 1,
+        "total_paginas_medicos": 1,
+        "total_registros_medicos": 0,
+        "nome_medico": "",
+        "crm_medico": "",
+        "especialidade_medico": "",
+        "telefone_medico": "",
+        "erro_medico": "",
+        "sucesso_medico": "",
+        "termo_busca": "",
+    },
+    "convenios": {
+        "convenios": [],
+        "convenio_selecionado": {},
+        "id_convenio_edicao": "",
+        "nome_convenio": "",
+        "tipo_convenio": "",
+        "cobertura_convenio": "",
+        "erro_convenio": "",
+        "sucesso_convenio": "",
+        "termo_busca": "",
+    },
+    "atendimentos": {
+        "atendimentos": [],
+        "atendimento_selecionado": {},
+        "diagnosticos": [],
+        "paciente_id_atendimento": "",
+        "medico_id_atendimento": "",
+        "convenio_id_atendimento": "",
+        "data_atendimento": "",
+        "motivo_atendimento": "",
+        "tipo_atendimento": "",
+        "erro_atendimento": "",
+        "sucesso_atendimento": "",
+        "atendimento_id_diagnostico": "",
+        "descricao_diagnostico": "",
+        "codigo_cid_diagnostico": "",
+        "data_diagnostico": "",
+        "erro_diagnostico": "",
+        "sucesso_diagnostico": "",
+        "termo_busca": "",
+    },
+    "internacoes": {
+        "leitos": [],
+        "internacoes": [],
+        "atendimentos_internaveis": [],
+        "atendimento_id_internacao": "",
+        "leito_id_internacao": "",
+        "data_entrada_internacao": "",
+        "internacao_id_alta": "",
+        "data_saida_internacao": "",
+        "erro_internacao": "",
+        "sucesso_internacao": "",
+        "transferencias": [],
+        "internacao_id_transferencia": "",
+        "data_transferencia": "",
+        "destino_transferencia": "",
+        "motivo_transferencia": "",
+        "erro_transferencia": "",
+        "sucesso_transferencia": "",
+        "numero_leito": "",
+        "erro_leito": "",
+        "sucesso_leito": "",
+        "termo_busca": "",
+    },
+    "historico": {
+        "paciente_id_historico": "",
+        "historico_eventos": [],
+        "erro_historico": "",
+    },
+    "relatorios": {
+        "leitos": [],
+        "internacoes": [],
+        "erro_internacao": "",
+        "termo_busca": "",
+    },
+}
+
+
+def texto_paginacao(pagina: int, total: int, exibidos: int) -> str:
+    """Ex.: '26–50 de 140'; sem registros, 'Nenhum registro'."""
+    if total <= 0 or exibidos <= 0:
+        return "Nenhum registro"
+    inicio = (pagina - 1) * POR_PAGINA_PADRAO + 1
+    return f"{inicio}–{inicio + exibidos - 1} de {total}"
+
+
+def paginas_do_total(total: int | None, exibidos: int) -> int:
+    """Número de páginas; endpoint sem paginação (total None) conta como uma."""
+    if total is None or exibidos == 0:
+        return 1
+    return max(1, -(-total // POR_PAGINA_PADRAO))
 
 
 def rota_pos_login(papel: str) -> str | None:
@@ -109,8 +252,11 @@ class AuthState(rx.State):
     erro: str = ""
 
     pacientes: list[dict[str, str]] = []
+    pagina_pacientes: int = 1
+    total_paginas_pacientes: int = 1
+    total_registros_pacientes: int = 0
+    pacientes_referencia: list[dict[str, str]] = []
     paciente_selecionado: dict[str, str] = {}
-    id_paciente_edicao: str = ""
     nome_paciente: str = ""
     cpf_paciente: str = ""
     nascimento_paciente: str = ""
@@ -121,6 +267,10 @@ class AuthState(rx.State):
     sucesso_paciente: str = ""
 
     medicos: list[dict[str, str]] = []
+    pagina_medicos: int = 1
+    total_paginas_medicos: int = 1
+    total_registros_medicos: int = 0
+    medicos_referencia: list[dict[str, str]] = []
     medico_selecionado: dict[str, str] = {}
     id_medico_edicao: str = ""
     nome_medico: str = ""
@@ -141,7 +291,6 @@ class AuthState(rx.State):
 
     atendimentos: list[dict[str, str]] = []
     atendimento_selecionado: dict[str, str] = {}
-    id_atendimento_edicao: str = ""
     paciente_id_atendimento: str = ""
     medico_id_atendimento: str = ""
     convenio_id_atendimento: str = ""
@@ -187,6 +336,19 @@ class AuthState(rx.State):
     historico_eventos: list[dict[str, str]] = []
     erro_historico: str = ""
 
+    acao_em_andamento: str = ""
+    termo_busca: str = ""
+
+    painel_pacientes: int = -1
+    painel_medicos: int = -1
+    painel_atendimentos: int = -1
+    painel_leitos_livres: int = -1
+    painel_leitos_ocupados: int = -1
+    painel_internacoes_ativas: int = -1
+    painel_atualizado_em: str = ""
+    erro_painel: str = ""
+    _painel_ts: float = 0.0
+
     @rx.var
     def is_authenticated(self) -> bool:
         """Indica se há um usuário autenticado na sessão atual."""
@@ -223,6 +385,10 @@ class AuthState(rx.State):
     @rx.var
     def pode_cadastrar_medicos(self) -> bool:
         return self._pode_acessar_recurso(RECURSO_MEDICOS)
+
+    @rx.var
+    def editando_medico(self) -> bool:
+        return bool(self.id_medico_edicao)
 
     @rx.var
     def possui_convenio_selecionado(self) -> bool:
@@ -281,12 +447,12 @@ class AuthState(rx.State):
         return self._pode_acessar_recurso(RECURSO_RELATORIOS)
 
     @rx.var
-    def resumo_leitos(self) -> dict:
+    def resumo_leitos(self) -> dict[str, int]:
         return contagem_leitos(self.leitos)
 
     @rx.var
-    def lista_internacoes_ativas(self) -> list[dict]:
-        return _calcular_internacoes_ativas(self.internacoes)
+    def lista_internacoes_ativas(self) -> list[InternacaoAtiva]:
+        return calcular_internacoes_ativas(self.internacoes)
 
     @rx.var
     def possui_internacoes_ativas(self) -> bool:
@@ -356,14 +522,14 @@ class AuthState(rx.State):
     def opcoes_pacientes_atendimento(self) -> list[str]:
         return [
             f"{paciente.get('id', '')} - {paciente.get('nome', '')}"
-            for paciente in self.pacientes
+            for paciente in self.pacientes_referencia
         ]
 
     @rx.var
     def opcoes_medicos_atendimento(self) -> list[str]:
         return [
             f"{medico.get('id', '')} - {medico.get('nome', '')}"
-            for medico in self.medicos
+            for medico in self.medicos_referencia
         ]
 
     @rx.var
@@ -386,20 +552,62 @@ class AuthState(rx.State):
         return bool(self.id_convenio_edicao)
 
     @rx.var
-    def editando_paciente(self) -> bool:
-        return bool(self.id_paciente_edicao)
-
-    @rx.var
-    def editando_medico(self) -> bool:
-        return bool(self.id_medico_edicao)
-
-    @rx.var
-    def editando_atendimento(self) -> bool:
-        return bool(self.id_atendimento_edicao)
-
-    @rx.var
     def tipos_convenio(self) -> list[str]:
         return list(TIPOS_CONVENIO)
+
+    @rx.var
+    def texto_paginacao_pacientes(self) -> str:
+        return texto_paginacao(
+            self.pagina_pacientes, self.total_registros_pacientes, len(self.pacientes)
+        )
+
+    @rx.var
+    def texto_paginacao_medicos(self) -> str:
+        return texto_paginacao(
+            self.pagina_medicos, self.total_registros_medicos, len(self.medicos)
+        )
+
+    @rx.var
+    def carregando_pagina(self) -> bool:
+        return self.acao_em_andamento == "carregando"
+
+    @rx.var
+    def iniciais_usuario(self) -> str:
+        return (self.login.strip()[:2] or "?").upper()
+
+    @rx.var
+    def pacientes_filtrados(self) -> list[dict[str, str]]:
+        return filtrar_registros(self.pacientes, self.termo_busca)
+
+    @rx.var
+    def medicos_filtrados(self) -> list[dict[str, str]]:
+        return filtrar_registros(self.medicos, self.termo_busca)
+
+    @rx.var
+    def convenios_filtrados(self) -> list[dict[str, str]]:
+        return filtrar_registros(self.convenios, self.termo_busca)
+
+    @rx.var
+    def atendimentos_filtrados(self) -> list[dict[str, str]]:
+        return filtrar_registros(self.atendimentos, self.termo_busca)
+
+    @rx.var
+    def internacoes_filtradas(self) -> list[dict[str, str]]:
+        return filtrar_registros(self.internacoes, self.termo_busca)
+
+    @rx.var
+    def total_leitos_livres(self) -> int:
+        return sum(1 for leito in self.leitos if leito.get("status") == "livre")
+
+    @rx.var
+    def total_leitos_ocupados(self) -> int:
+        return sum(1 for leito in self.leitos if leito.get("status") == "ocupado")
+
+    @rx.var
+    def total_internacoes_ativas(self) -> int:
+        return sum(
+            1 for internacao in self.internacoes if internacao.get("status") == "internado"
+        )
 
     def _pode_acessar_recurso(self, recurso: str) -> bool:
         return pode_acessar(self.is_authenticated, self.papel, recurso)
@@ -413,6 +621,169 @@ class AuthState(rx.State):
     def set_senha(self, value: str):
         """Atualiza o campo de senha do formulário."""
         self.senha = value
+
+    @rx.event
+    def set_termo_busca(self, value: str):
+        self.termo_busca = value
+
+    @rx.event
+    def limpar_busca(self):
+        self.termo_busca = ""
+
+    @rx.event
+    def iniciar_acao(self, chave: str, dominio: str = ""):
+        """Marca a ação em andamento e limpa mensagens antigas do domínio."""
+        self.acao_em_andamento = chave[:60]
+        campos = CAMPOS_FEEDBACK.get(dominio)
+        if campos is None:
+            return
+        for campo in campos:
+            if campo is not None:
+                setattr(self, campo, "")
+
+    @rx.event
+    def encerrar_acao(self):
+        self.acao_em_andamento = ""
+
+    @rx.event
+    def notificar_resultado(self, dominio: str):
+        """Exibe toast com o resultado do último evento do domínio."""
+        campos = CAMPOS_FEEDBACK.get(dominio)
+        if campos is None:
+            return
+        campo_erro, campo_sucesso = campos
+        erro = getattr(self, campo_erro)
+        if erro:
+            return rx.toast.error(erro, close_button=True, duration=6000)
+        if campo_sucesso is None:
+            return
+        sucesso = getattr(self, campo_sucesso)
+        if sucesso:
+            setattr(self, campo_sucesso, "")
+            return rx.toast.success(sucesso, close_button=True, duration=4000)
+
+    @rx.event
+    def notificar_atualizacao(self, dominio: str):
+        """Confirma com toast que a leitura foi atualizada (ou mostra o erro)."""
+        campos = CAMPOS_FEEDBACK.get(dominio)
+        if campos is None:
+            return
+        erro = getattr(self, campos[0])
+        if erro:
+            return rx.toast.error(erro, close_button=True, duration=6000)
+        return rx.toast.success("Dados atualizados.", duration=2500)
+
+    @rx.event
+    def limpar_tela(self, tela: str):
+        """Limpa leituras, seleções, busca e formulários de uma tela (lista fixa)."""
+        campos = CAMPOS_LIMPEZA.get(tela)
+        if campos is None:
+            return
+        for campo, valor in campos.items():
+            setattr(
+                self,
+                campo,
+                type(valor)() if isinstance(valor, (list, dict)) else valor,
+            )
+        return rx.toast.info("Tela limpa.", duration=2500)
+
+    @rx.event
+    def atualizar_historico(self):
+        """Recarrega os pacientes e, se houver um selecionado, o histórico dele."""
+        destino = self.carregar_historico()
+        if destino is not None:
+            return destino
+        if self.paciente_id_historico:
+            self.consultar_historico()
+
+    @rx.event
+    def login_tecla(self, tecla: str):
+        """Permite enviar o login com a tecla Enter."""
+        if tecla != "Enter" or self.acao_em_andamento:
+            return
+        return [
+            AuthState.iniciar_acao("login", "login"),
+            AuthState.do_login,
+            AuthState.notificar_resultado("login"),
+            AuthState.encerrar_acao,
+        ]
+
+    @rx.event
+    def carregar_resumo(self):
+        """Carrega os indicadores do painel, reaproveitando uma leitura recente."""
+        recente = (
+            self.painel_atualizado_em != ""
+            and time.time() - self._painel_ts < VALIDADE_PAINEL_SEGUNDOS
+        )
+        if not recente:
+            self._ler_resumo()
+
+    @rx.event
+    def atualizar_resumo(self):
+        """Releitura forçada dos indicadores (botão Atualizar)."""
+        self._ler_resumo()
+
+    def _ler_resumo(self):
+        """Lê só totais, em paralelo e sem guardar listas de pacientes no estado."""
+        if not pode_acessar(self.is_authenticated, self.papel, RECURSO_DASHBOARD):
+            return
+        try:
+            cliente = XanoClient(XanoConfig.from_env())
+        except XanoError:
+            logger.warning("summary_result status=config_error role=%s", self.papel)
+            return
+        token = self._auth_token
+        tarefas = {}
+        if self.pode_ver_pacientes:
+            tarefas["pacientes"] = lambda: cliente.contar_pacientes(token)
+        if self.pode_ver_medicos:
+            tarefas["medicos"] = lambda: cliente.contar_medicos(token)
+        if self.pode_ver_atendimentos:
+            tarefas["atendimentos"] = lambda: cliente.contar_atendimentos(token)
+        if self.pode_ver_leitos:
+            tarefas["leitos"] = lambda: cliente.listar_leitos(token)
+        if self.pode_ver_internacoes:
+            tarefas["internacoes"] = lambda: cliente.listar_internacoes(token)
+        if not tarefas:
+            return
+
+        with ThreadPoolExecutor(max_workers=len(tarefas)) as pool:
+            futuros = {chave: pool.submit(tarefa) for chave, tarefa in tarefas.items()}
+        resultados = {}
+        falhas = []
+        for chave, futuro in futuros.items():
+            try:
+                resultados[chave] = futuro.result()
+            except XanoError:
+                falhas.append(chave)
+                logger.warning(
+                    "summary_result status=xano_error resource=%s role=%s",
+                    chave,
+                    self.papel,
+                )
+
+        self.erro_painel = (
+            "Não foi possível atualizar todos os indicadores." if falhas else ""
+        )
+        if "pacientes" in resultados:
+            self.painel_pacientes = resultados["pacientes"]
+        if "medicos" in resultados:
+            self.painel_medicos = resultados["medicos"]
+        if "atendimentos" in resultados:
+            self.painel_atendimentos = resultados["atendimentos"]
+        if "leitos" in resultados:
+            status = [str(leito.get("status", "")) for leito in resultados["leitos"]]
+            self.painel_leitos_livres = status.count("livre")
+            self.painel_leitos_ocupados = status.count("ocupado")
+        if "internacoes" in resultados:
+            self.painel_internacoes_ativas = sum(
+                1
+                for internacao in resultados["internacoes"]
+                if internacao.get("status") == "internado"
+            )
+        if resultados:
+            self._painel_ts = time.time()
+            self.painel_atualizado_em = time.strftime("%H:%M")
 
     @rx.event
     def set_nome_paciente(self, value: str):
@@ -642,6 +1013,10 @@ class AuthState(rx.State):
             self.senha,
         ) = valores_sessao_encerrada()
         self.pacientes = []
+        self.pagina_pacientes = 1
+        self.total_paginas_pacientes = 1
+        self.total_registros_pacientes = 0
+        self.pacientes_referencia = []
         self.paciente_selecionado = {}
         self.nome_paciente = ""
         self.cpf_paciente = ""
@@ -652,6 +1027,10 @@ class AuthState(rx.State):
         self.erro_paciente = ""
         self.sucesso_paciente = ""
         self.medicos = []
+        self.pagina_medicos = 1
+        self.total_paginas_medicos = 1
+        self.total_registros_medicos = 0
+        self.medicos_referencia = []
         self.medico_selecionado = {}
         self.id_medico_edicao = ""
         self.nome_medico = ""
@@ -709,6 +1088,17 @@ class AuthState(rx.State):
         self.paciente_id_historico = ""
         self.historico_eventos = []
         self.erro_historico = ""
+        self.acao_em_andamento = ""
+        self.termo_busca = ""
+        self.painel_pacientes = -1
+        self.painel_medicos = -1
+        self.painel_atendimentos = -1
+        self.painel_leitos_livres = -1
+        self.painel_leitos_ocupados = -1
+        self.painel_internacoes_ativas = -1
+        self.painel_atualizado_em = ""
+        self.erro_painel = ""
+        self._painel_ts = 0.0
         return rx.redirect("/")
 
     @rx.event
@@ -724,20 +1114,27 @@ class AuthState(rx.State):
             return rx.redirect("/dashboard")
         self._carregar_pacientes()
 
-    def _carregar_pacientes(self):
-        """Executa a consulta de pacientes dentro de outro evento."""
+    def _carregar_pacientes(self, nova_tentativa: bool = True):
+        """Carrega a página atual de pacientes dentro de outro evento."""
         self.erro_paciente = ""
         if not pode_acessar(self.is_authenticated, self.papel, RECURSO_PACIENTES):
             self.erro_paciente = "Você não tem permissão para consultar pacientes."
             return
 
         try:
-            registros = XanoClient(XanoConfig.from_env()).listar_pacientes(
-                self._auth_token
+            registros, total = XanoClient(XanoConfig.from_env()).listar_pacientes_pagina(
+                self._auth_token,
+                self.pagina_pacientes,
+                POR_PAGINA_PADRAO,
             )
         except XanoError:
             logger.warning("patient_list_result status=xano_error role=%s", self.papel)
             self.erro_paciente = "Não foi possível carregar os pacientes."
+            return
+
+        if not registros and self.pagina_pacientes > 1 and nova_tentativa:
+            self.pagina_pacientes = 1
+            self._carregar_pacientes(nova_tentativa=False)
             return
 
         self.pacientes = [
@@ -748,11 +1145,31 @@ class AuthState(rx.State):
             }
             for registro in registros
         ]
+        self.total_registros_pacientes = total if total is not None else len(registros)
+        self.total_paginas_pacientes = paginas_do_total(total, len(registros))
         logger.info(
-            "patient_list_result status=success role=%s count=%s",
+            "patient_list_result status=success role=%s count=%s page=%s",
             self.papel,
             len(self.pacientes),
+            self.pagina_pacientes,
         )
+
+    def _carregar_pacientes_referencia(self):
+        """Todos os pacientes (só id e nome) para o seletor de atendimentos."""
+        if not pode_acessar(self.is_authenticated, self.papel, RECURSO_PACIENTES):
+            self.pacientes_referencia = []
+            return
+        try:
+            registros = XanoClient(XanoConfig.from_env()).listar_todos_pacientes(
+                self._auth_token
+            )
+        except XanoError:
+            self.erro_atendimento = "Não foi possível carregar os pacientes."
+            return
+        self.pacientes_referencia = [
+            {"id": str(r.get("id", "")), "nome": str(r.get("nome", ""))}
+            for r in registros
+        ]
 
     @rx.event
     def carregar_medicos(self):
@@ -767,30 +1184,74 @@ class AuthState(rx.State):
             return rx.redirect("/dashboard")
         self._carregar_medicos()
 
-    def _carregar_medicos(self):
-        """Executa a consulta de medicos dentro de outro evento."""
+    def _carregar_medicos(self, nova_tentativa: bool = True):
+        """Carrega a página atual de médicos dentro de outro evento."""
         self.erro_medico = ""
         if not pode_acessar(self.is_authenticated, self.papel, RECURSO_MEDICOS):
             self.erro_medico = "Você não tem permissão para consultar médicos."
             return
+
         try:
-            registros = XanoClient(XanoConfig.from_env()).listar_medicos(
-                self._auth_token
+            registros, total = XanoClient(XanoConfig.from_env()).listar_medicos_pagina(
+                self._auth_token,
+                self.pagina_medicos,
+                POR_PAGINA_PADRAO,
             )
         except XanoError:
             logger.warning("doctor_list_result status=xano_error role=%s", self.papel)
             self.erro_medico = "Não foi possível carregar os médicos."
             return
 
+        if not registros and self.pagina_medicos > 1 and nova_tentativa:
+            self.pagina_medicos = 1
+            self._carregar_medicos(nova_tentativa=False)
+            return
+
         self.medicos = [
             {chave: str(valor) for chave, valor in registro.items()}
             for registro in registros
         ]
+        self.total_registros_medicos = total if total is not None else len(registros)
+        self.total_paginas_medicos = paginas_do_total(total, len(registros))
         logger.info(
-            "doctor_list_result status=success role=%s count=%s",
+            "doctor_list_result status=success role=%s count=%s page=%s",
             self.papel,
             len(self.medicos),
+            self.pagina_medicos,
         )
+
+    def _carregar_medicos_referencia(self):
+        """Todos os médicos (só id e nome) para o seletor de atendimentos."""
+        if not pode_acessar(self.is_authenticated, self.papel, RECURSO_MEDICOS):
+            self.medicos_referencia = []
+            return
+        try:
+            registros = XanoClient(XanoConfig.from_env()).listar_todos_medicos(
+                self._auth_token
+            )
+        except XanoError:
+            self.erro_atendimento = "Não foi possível carregar os médicos."
+            return
+        self.medicos_referencia = [
+            {"id": str(r.get("id", "")), "nome": str(r.get("nome", ""))}
+            for r in registros
+        ]
+
+    @rx.event
+    def mudar_pagina(self, tela: str, delta: int):
+        """Navega nas listas paginadas (pacientes e médicos); a busca é por página."""
+        if tela == "pacientes":
+            self.pagina_pacientes = min(
+                max(1, self.pagina_pacientes + delta), self.total_paginas_pacientes
+            )
+            self.termo_busca = ""
+            self._carregar_pacientes()
+        elif tela == "medicos":
+            self.pagina_medicos = min(
+                max(1, self.pagina_medicos + delta), self.total_paginas_medicos
+            )
+            self.termo_busca = ""
+            self._carregar_medicos()
 
     @rx.event
     def consultar_medico(self, medico_id: str):
@@ -798,7 +1259,7 @@ class AuthState(rx.State):
         if not pode_acessar(self.is_authenticated, self.papel, RECURSO_MEDICOS):
             self.erro_medico = "Você não tem permissão para consultar médicos."
             return
-        if self.medico_selecionado.get("id") == medico_id:
+        if self.medico_selecionado.get("id") == str(medico_id):
             self.medico_selecionado = {}
             return
         try:
@@ -815,7 +1276,7 @@ class AuthState(rx.State):
 
     @rx.event
     def editar_medico(self, medico_id: str):
-        """Preenche o formulario com os dados do medico para edicao."""
+        """Preenche o formulário com os dados do médico selecionado."""
         try:
             registro = next(
                 medico
@@ -825,6 +1286,7 @@ class AuthState(rx.State):
         except StopIteration:
             self.erro_medico = "Não foi possível editar o médico."
             return
+        self.erro_medico = ""
         self.id_medico_edicao = str(medico_id)
         self.nome_medico = registro.get("nome", "")
         self.crm_medico = formatar_crm(registro.get("crm", ""))
@@ -839,13 +1301,12 @@ class AuthState(rx.State):
         self.especialidade_medico = ""
         self.telefone_medico = ""
 
-    @rx.event
-    def salvar_medico(self):
-        """Valida e cria ou atualiza um medico para recepcionista ou admin."""
+    def _salvar_medico(self):
+        """Valida e cria ou atualiza um médico para recepcionista ou admin."""
         self.erro_medico = ""
         self.sucesso_medico = ""
         if not pode_acessar(self.is_authenticated, self.papel, RECURSO_MEDICOS):
-            self.erro_medico = "Você não tem permissão para cadastrar médicos."
+            self.erro_medico = "Você não tem permissão para manter médicos."
             return
 
         campos = [
@@ -872,14 +1333,17 @@ class AuthState(rx.State):
             return
 
         try:
-            medicos_existentes = XanoClient(XanoConfig.from_env()).listar_medicos(
+            medicos_existentes = XanoClient(XanoConfig.from_env()).listar_todos_medicos(
                 self._auth_token
             )
         except XanoError:
             self.erro_medico = "Não foi possível validar o CRM."
             return
         if any(
-            str(medico.get("id")) != self.id_medico_edicao
+            (
+                not self.id_medico_edicao
+                or str(medico.get("id", "")) != self.id_medico_edicao
+            )
             and normalizar_crm(str(medico.get("crm", ""))) == crm
             for medico in medicos_existentes
         ):
@@ -907,13 +1371,26 @@ class AuthState(rx.State):
         except XanoValidationError:
             self.erro_medico = "O CRM já está cadastrado."
             return
-        except XanoError:
+        except (ValueError, XanoError):
             self.erro_medico = "Não foi possível salvar o médico."
             return
 
         self.sucesso_medico = mensagem
-        self.cancelar_edicao_medico()
+        self.id_medico_edicao = ""
+        self.nome_medico = ""
+        self.crm_medico = ""
+        self.especialidade_medico = ""
+        self.telefone_medico = ""
         self._carregar_medicos()
+
+    @rx.event
+    def criar_medico(self):
+        """Mantém compatibilidade com o evento de cadastro existente."""
+        self._salvar_medico()
+
+    @rx.event
+    def salvar_medico(self):
+        self._salvar_medico()
 
     @rx.event
     def excluir_medico(self, medico_id: str):
@@ -936,77 +1413,11 @@ class AuthState(rx.State):
         self.sucesso_medico = "Médico excluído."
         self.medico_selecionado = {}
         if self.id_medico_edicao == str(medico_id):
-            self.cancelar_edicao_medico()
-        self._carregar_medicos()
-
-    @rx.event
-    def criar_medico(self):
-        """Valida e cria um medico para recepcionista ou admin."""
-        self.erro_medico = ""
-        self.sucesso_medico = ""
-        if not pode_acessar(self.is_authenticated, self.papel, RECURSO_MEDICOS):
-            self.erro_medico = "Você não tem permissão para cadastrar médicos."
-            return
-
-        campos = [
-            self.nome_medico,
-            self.crm_medico,
-            self.especialidade_medico,
-            self.telefone_medico,
-        ]
-        if not all(campo.strip() for campo in campos):
-            self.erro_medico = "Preencha todos os campos do médico."
-            return
-
-        nome = normalizar_nome(self.nome_medico)
-        crm = normalizar_crm(self.crm_medico)
-        telefone = normalizar_telefone(self.telefone_medico)
-        if not nome_valido(nome):
-            self.erro_medico = "Informe um nome válido."
-            return
-        if not crm_valido(crm):
-            self.erro_medico = "Informe um CRM válido."
-            return
-        if not telefone_valido(telefone):
-            self.erro_medico = "Informe um telefone válido."
-            return
-
-        try:
-            medicos_existentes = XanoClient(XanoConfig.from_env()).listar_medicos(
-                self._auth_token
-            )
-        except XanoError:
-            self.erro_medico = "Não foi possível validar o CRM."
-            return
-        if any(
-            normalizar_crm(str(medico.get("crm", ""))) == crm
-            for medico in medicos_existentes
-        ):
-            self.erro_medico = "O CRM já está cadastrado."
-            return
-
-        try:
-            medico_id = XanoClient(XanoConfig.from_env()).criar_medico(
-                self._auth_token,
-                {
-                    "nome": nome,
-                    "crm": crm,
-                    "especialidade": self.especialidade_medico.strip(),
-                    "telefone": telefone,
-                },
-            )
-        except XanoValidationError:
-            self.erro_medico = "O CRM já está cadastrado."
-            return
-        except XanoError:
-            self.erro_medico = "Não foi possível cadastrar o médico."
-            return
-
-        self.sucesso_medico = f"Médico cadastrado (#{medico_id})."
-        self.nome_medico = ""
-        self.crm_medico = ""
-        self.especialidade_medico = ""
-        self.telefone_medico = ""
+            self.id_medico_edicao = ""
+            self.nome_medico = ""
+            self.crm_medico = ""
+            self.especialidade_medico = ""
+            self.telefone_medico = ""
         self._carregar_medicos()
 
     @rx.event
@@ -1038,9 +1449,6 @@ class AuthState(rx.State):
         """Carrega os dados detalhados de um convenio autorizado."""
         if not pode_acessar(self.is_authenticated, self.papel, RECURSO_CONVENIOS):
             self.erro_convenio = "Você não tem permissão para consultar convênios."
-            return
-        if self.convenio_selecionado.get("id") == convenio_id:
-            self.convenio_selecionado = {}
             return
         try:
             registro = XanoClient(XanoConfig.from_env()).consultar_convenio(
@@ -1170,10 +1578,11 @@ class AuthState(rx.State):
             RECURSO_ATENDIMENTOS,
         ):
             return rx.redirect("/dashboard")
-        if self.pode_cadastrar_atendimentos:
-            self._carregar_medicos()
-            self._carregar_convenios()
         self._carregar_atendimentos()
+        if self.pode_cadastrar_atendimentos:
+            self._carregar_pacientes_referencia()
+            self._carregar_medicos_referencia()
+            self._carregar_convenios()
 
     def _carregar_atendimentos(self):
         self.erro_atendimento = ""
@@ -1209,11 +1618,6 @@ class AuthState(rx.State):
             self.erro_atendimento = (
                 "Você não tem permissão para consultar atendimentos."
             )
-            return
-        if self.atendimento_selecionado.get("id") == atendimento_id:
-            self.atendimento_selecionado = {}
-            self.atendimento_id_diagnostico = ""
-            self.diagnosticos = []
             return
         try:
             registro = XanoClient(XanoConfig.from_env()).consultar_atendimento(
@@ -1360,6 +1764,14 @@ class AuthState(rx.State):
             return rx.redirect("/dashboard")
         self._carregar_leitos()
         self._carregar_atendimentos_internaveis()
+        self._carregar_internacoes()
+
+    @rx.event
+    def carregar_relatorios(self):
+        """Carrega apenas os dados necessários aos relatórios autorizados."""
+        if not self.pode_ver_relatorios:
+            return rx.redirect("/dashboard")
+        self._carregar_leitos()
         self._carregar_internacoes()
 
     def _carregar_atendimentos_internaveis(self):
@@ -1599,126 +2011,8 @@ class AuthState(rx.State):
         self._carregar_transferencias(self.internacao_id_transferencia)
 
     @rx.event
-    def editar_atendimento(self, atendimento_id: str):
-        """Preenche o formulario com os dados do atendimento para edicao."""
-        try:
-            registro = next(
-                atendimento for atendimento in self.atendimentos
-                if atendimento.get("id") == str(atendimento_id)
-            )
-        except StopIteration:
-            self.erro_atendimento = "Não foi possível editar o atendimento."
-            return
-        self.id_atendimento_edicao = str(atendimento_id)
-        paciente_id = registro.get("paciente_id", "")
-        medico_id = registro.get("medico_id", "")
-        convenio_id = registro.get("convenio_id", "")
-        self.paciente_id_atendimento = (
-            f"{paciente_id} - {registro.get('paciente_nome', '')}"
-            if paciente_id
-            else ""
-        )
-        self.medico_id_atendimento = (
-            f"{medico_id} - {registro.get('medico_nome', '')}"
-            if medico_id
-            else ""
-        )
-        self.convenio_id_atendimento = (
-            f"{convenio_id} - {registro.get('convenio_nome', '')}"
-            if convenio_id and convenio_id != "None"
-            else ""
-        )
-        self.data_atendimento = data_iso_para_br(registro.get("data_atendimento", ""))
-        self.motivo_atendimento = registro.get("motivo", "")
-        self.tipo_atendimento = registro.get("tipo", "")
-
-    @rx.event
-    def cancelar_edicao_atendimento(self):
-        self.id_atendimento_edicao = ""
-        self.paciente_id_atendimento = ""
-        self.medico_id_atendimento = ""
-        self.convenio_id_atendimento = ""
-        self.data_atendimento = ""
-        self.motivo_atendimento = ""
-        self.tipo_atendimento = ""
-
-    @rx.event
-    def salvar_atendimento(self):
-        """Valida e cria ou atualiza um atendimento para recepcionista ou admin."""
-        self.erro_atendimento = ""
-        self.sucesso_atendimento = ""
-        if not self.pode_cadastrar_atendimentos:
-            self.erro_atendimento = (
-                "Você não tem permissão para cadastrar atendimentos."
-            )
-            return
-
-        paciente_id = self.paciente_id_atendimento.split(" - ", 1)[0]
-        medico_id = self.medico_id_atendimento.split(" - ", 1)[0]
-        convenio_id = self.convenio_id_atendimento.split(" - ", 1)[0]
-        campos_obrigatorios = [
-            paciente_id,
-            medico_id,
-            self.data_atendimento,
-            self.motivo_atendimento,
-            self.tipo_atendimento,
-        ]
-        if not all(campo.strip() for campo in campos_obrigatorios):
-            self.erro_atendimento = "Preencha todos os campos do atendimento."
-            return
-        if not referencia_atendimento_valida(paciente_id):
-            self.erro_atendimento = "Informe um paciente válido."
-            return
-        if not referencia_atendimento_valida(medico_id):
-            self.erro_atendimento = "Informe um médico válido."
-            return
-        if convenio_id and not referencia_atendimento_valida(convenio_id):
-            self.erro_atendimento = "Informe um convênio válido."
-            return
-        if not data_atendimento_valida(data_br_para_iso(self.data_atendimento)):
-            self.erro_atendimento = "Informe uma data de atendimento válida."
-            return
-        if not motivo_atendimento_valido(self.motivo_atendimento):
-            self.erro_atendimento = "Informe o motivo do atendimento."
-            return
-        if not tipo_atendimento_valido(self.tipo_atendimento):
-            self.erro_atendimento = "Informe um tipo de atendimento válido."
-            return
-
-        dados: dict[str, int | str | None] = {
-            "paciente_id": int(paciente_id),
-            "medico_id": int(medico_id),
-            "convenio_id": int(convenio_id) if convenio_id else None,
-            "data_atendimento": data_br_para_iso(self.data_atendimento),
-            "motivo": self.motivo_atendimento.strip(),
-            "tipo": self.tipo_atendimento,
-        }
-        try:
-            cliente = XanoClient(XanoConfig.from_env())
-            if self.id_atendimento_edicao:
-                cliente.atualizar_atendimento(
-                    self._auth_token,
-                    int(self.id_atendimento_edicao),
-                    dados,
-                )
-                mensagem = "Atendimento atualizado."
-            else:
-                atendimento_id = cliente.criar_atendimento(self._auth_token, dados)
-                mensagem = f"Atendimento cadastrado (#{atendimento_id})."
-        except XanoValidationError:
-            self.erro_atendimento = "As referências do atendimento são inválidas."
-            return
-        except XanoError:
-            self.erro_atendimento = "Não foi possível salvar o atendimento."
-            return
-
-        self.sucesso_atendimento = mensagem
-        self.cancelar_edicao_atendimento()
-        self._carregar_atendimentos()
-
-    @rx.event
     def criar_atendimento(self):
-        """Mantém o fluxo de criação direta usado pelas integrações existentes."""
+        """Valida e cria atendimento para recepcionista ou admin."""
         self.erro_atendimento = ""
         self.sucesso_atendimento = ""
         if not self.pode_cadastrar_atendimentos:
@@ -1789,39 +2083,12 @@ class AuthState(rx.State):
         self._carregar_atendimentos()
 
     @rx.event
-    def excluir_atendimento(self, atendimento_id: str):
-        self.erro_atendimento = ""
-        self.sucesso_atendimento = ""
-        if not self.pode_cadastrar_atendimentos:
-            self.erro_atendimento = (
-                "Você não tem permissão para excluir atendimentos."
-            )
-            return
-        try:
-            XanoClient(XanoConfig.from_env()).excluir_atendimento(
-                self._auth_token,
-                int(atendimento_id),
-            )
-        except XanoValidationError as error:
-            self.erro_atendimento = str(error)
-            return
-        except (ValueError, XanoError):
-            self.erro_atendimento = "Não foi possível excluir o atendimento."
-            return
-        self.sucesso_atendimento = "Atendimento excluído."
-        if self.atendimento_selecionado.get("id") == str(atendimento_id):
-            self.atendimento_selecionado = {}
-        if self.id_atendimento_edicao == str(atendimento_id):
-            self.cancelar_edicao_atendimento()
-        self._carregar_atendimentos()
-
-    @rx.event
     def consultar_paciente(self, paciente_id: str):
         """Carrega os dados detalhados de um paciente autorizado."""
         if not pode_acessar(self.is_authenticated, self.papel, RECURSO_PACIENTES):
             self.erro_paciente = "Você não tem permissão para consultar pacientes."
             return
-        if self.paciente_selecionado.get("id") == paciente_id:
+        if self.paciente_selecionado.get("id") == str(paciente_id):
             self.paciente_selecionado = {}
             return
         try:
@@ -1837,41 +2104,8 @@ class AuthState(rx.State):
         }
 
     @rx.event
-    def editar_paciente(self, paciente_id: str):
-        """Preenche o formulario com os dados do paciente para edicao."""
-        try:
-            registro = next(
-                paciente for paciente in self.pacientes
-                if paciente.get("id") == str(paciente_id)
-            )
-        except StopIteration:
-            self.erro_paciente = "Não foi possível editar o paciente."
-            return
-        self.id_paciente_edicao = str(paciente_id)
-        self.nome_paciente = registro.get("nome", "")
-        self.cpf_paciente = formatar_cpf(registro.get("cpf", ""))
-        self.nascimento_paciente = data_iso_para_br(
-            registro.get("data_nascimento", "")
-        )
-        self.telefone_paciente = formatar_telefone(registro.get("telefone", ""))
-        self.endereco_paciente = registro.get("endereco", "")
-        self.emergencia_paciente = formatar_telefone(
-            registro.get("contato_emergencia", "")
-        )
-
-    @rx.event
-    def cancelar_edicao_paciente(self):
-        self.id_paciente_edicao = ""
-        self.nome_paciente = ""
-        self.cpf_paciente = ""
-        self.nascimento_paciente = ""
-        self.telefone_paciente = ""
-        self.endereco_paciente = ""
-        self.emergencia_paciente = ""
-
-    @rx.event
-    def salvar_paciente(self):
-        """Valida e cria ou atualiza um paciente para recepcionista ou admin."""
+    def criar_paciente(self):
+        """Valida e cria um paciente para recepcionista ou admin."""
         self.erro_paciente = ""
         self.sucesso_paciente = ""
         if not self.is_authenticated or not tem_permissao(
@@ -1903,7 +2137,7 @@ class AuthState(rx.State):
             self.erro_paciente = "Informe um nome válido."
             return
 
-        if not data_nascimento_valida(data_br_para_iso(self.nascimento_paciente)):
+        if not data_nascimento_valida(self.nascimento_paciente):
             self.erro_paciente = "Informe uma data de nascimento válida."
             return
 
@@ -1918,73 +2152,31 @@ class AuthState(rx.State):
             return
 
         try:
-            existentes = XanoClient(XanoConfig.from_env()).listar_pacientes(
-                self._auth_token
+            paciente_id = XanoClient(XanoConfig.from_env()).criar_paciente(
+                self._auth_token,
+                {
+                    "nome": nome,
+                    "cpf": cpf,
+                    "data_nascimento": self.nascimento_paciente,
+                    "telefone": telefone,
+                    "endereco": self.endereco_paciente.strip(),
+                    "contato_emergencia": contato_emergencia,
+                },
             )
-        except XanoError:
-            self.erro_paciente = "Não foi possível validar o CPF."
-            return
-        if any(
-            str(paciente.get("id")) != self.id_paciente_edicao
-            and normalizar_cpf(str(paciente.get("cpf", ""))) == cpf
-            for paciente in existentes
-        ):
-            self.erro_paciente = "O CPF já está cadastrado."
-            return
-
-        dados = {
-            "nome": nome,
-            "cpf": cpf,
-            "data_nascimento": data_br_para_iso(self.nascimento_paciente),
-            "telefone": telefone,
-            "endereco": self.endereco_paciente.strip(),
-            "contato_emergencia": contato_emergencia,
-        }
-        try:
-            cliente = XanoClient(XanoConfig.from_env())
-            if self.id_paciente_edicao:
-                cliente.atualizar_paciente(
-                    self._auth_token,
-                    int(self.id_paciente_edicao),
-                    dados,
-                )
-                mensagem = "Paciente atualizado."
-            else:
-                paciente_id = cliente.criar_paciente(self._auth_token, dados)
-                mensagem = f"Paciente cadastrado (#{paciente_id})."
         except XanoValidationError:
             self.erro_paciente = "O CPF já está cadastrado."
             return
         except XanoError:
-            self.erro_paciente = "Não foi possível salvar o paciente."
+            self.erro_paciente = "Não foi possível cadastrar o paciente."
             return
 
-        self.sucesso_paciente = mensagem
-        self.cancelar_edicao_paciente()
-        self._carregar_pacientes()
-
-    @rx.event
-    def excluir_paciente(self, paciente_id: str):
-        self.erro_paciente = ""
-        self.sucesso_paciente = ""
-        if not tem_permissao(self.papel, RECURSO_CADASTRO_PACIENTES):
-            self.erro_paciente = "Você não tem permissão para excluir pacientes."
-            return
-        try:
-            XanoClient(XanoConfig.from_env()).excluir_paciente(
-                self._auth_token,
-                int(paciente_id),
-            )
-        except XanoValidationError as error:
-            self.erro_paciente = str(error)
-            return
-        except (ValueError, XanoError):
-            self.erro_paciente = "Não foi possível excluir o paciente."
-            return
-        self.sucesso_paciente = "Paciente excluído."
-        self.paciente_selecionado = {}
-        if self.id_paciente_edicao == str(paciente_id):
-            self.cancelar_edicao_paciente()
+        self.sucesso_paciente = f"Paciente cadastrado (#{paciente_id})."
+        self.nome_paciente = ""
+        self.cpf_paciente = ""
+        self.nascimento_paciente = ""
+        self.telefone_paciente = ""
+        self.endereco_paciente = ""
+        self.emergencia_paciente = ""
         self._carregar_pacientes()
 
     @rx.event

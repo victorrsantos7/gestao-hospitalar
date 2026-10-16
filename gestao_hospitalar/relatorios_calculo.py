@@ -7,9 +7,17 @@ Reflex, seguindo o mesmo padrao dos modulos ``validacao_*.py`` do projeto.
 from __future__ import annotations
 
 from datetime import date
+from typing import TypedDict
 
 
-def contagem_leitos(leitos: list[dict]) -> dict:
+class InternacaoAtiva(TypedDict):
+    id: str
+    leito_numero: str
+    data_entrada: str
+    dias_internado: int
+
+
+def contagem_leitos(leitos: list[dict]) -> dict[str, int]:
     """Conta leitos livres, ocupados e o total a partir da lista carregada."""
     livres = sum(1 for leito in leitos if leito.get("status") == "livre")
     ocupados = sum(1 for leito in leitos if leito.get("status") == "ocupado")
@@ -18,7 +26,7 @@ def contagem_leitos(leitos: list[dict]) -> dict:
 
 def internacoes_ativas(
     internacoes: list[dict], hoje: date | None = None
-) -> list[dict]:
+) -> list[InternacaoAtiva]:
     """Filtra internacoes com status "internado" e calcula dias internado.
 
     Internacoes com ``data_entrada`` ausente ou invalida sao ignoradas em
@@ -36,9 +44,9 @@ def internacoes_ativas(
         dias_internado = (data_referencia - data_entrada).days
         ativas.append(
             {
-                "id": internacao.get("id", ""),
-                "leito_numero": internacao.get("leito_numero", ""),
-                "data_entrada": internacao.get("data_entrada", ""),
+                "id": str(internacao.get("id", "")),
+                "leito_numero": str(internacao.get("leito_numero", "")),
+                "data_entrada": str(internacao.get("data_entrada", "")),
                 "dias_internado": dias_internado,
             }
         )

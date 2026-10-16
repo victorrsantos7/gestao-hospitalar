@@ -1,5 +1,4 @@
 import os
-import json
 import logging
 import unittest
 from unittest.mock import patch
@@ -120,7 +119,7 @@ class XanoClientTests(unittest.TestCase):
             "user-token",
             {"nome": "Ana", "cpf": "52998224725"},
         )
-        pacientes = client.listar_pacientes("user-token")
+        pacientes, _ = client.listar_pacientes_pagina("user-token")
         paciente = client.consultar_paciente("user-token", paciente_id)
 
         self.assertEqual(paciente_id, 12)
@@ -185,7 +184,7 @@ class XanoClientTests(unittest.TestCase):
         )
 
         self.assertEqual(
-            client.listar_pacientes("session-token"),
+            client.listar_pacientes_pagina("session-token")[0],
             [
                 {
                     "id": 1,
@@ -216,7 +215,7 @@ class XanoClientTests(unittest.TestCase):
             "doctor-token",
             {"nome": "Dra. Ana", "crm": "1234567/SP"},
         )
-        medicos = client.listar_medicos("doctor-token")
+        medicos, _ = client.listar_medicos_pagina("doctor-token")
         medico = client.consultar_medico("doctor-token", medico_id)
 
         self.assertEqual(medico_id, 21)
@@ -674,6 +673,139 @@ class XanoClientTests(unittest.TestCase):
             with self.assertRaises(XanoConfigurationError):
                 XanoConfig.from_env()
 
+
+class XanoClientPaginacaoTests(unittest.TestCase):
+    @staticmethod
+    def _cliente(handler) -> XanoClient:
+        return XanoClient(
+            XanoConfig("https://example.xano.io/api:test", None, 5),
+            transport=httpx.MockTransport(handler),
+        )
+
+    def test_pagina_devolve_registros_e_total(self) -> None:
+        def handler(request: httpx.Request) -> httpx.Response:
+            self.assertEqual(request.url.query, b"page=3&per_page=25")
+            return httpx.Response(
+                200, json={"itemsTotal": 140, "items": [{"id": 51}, {"id": 52}]}
+            )
+
+        registros, total = self._cliente(handler).listar_pacientes_pagina(
+            "token", page=3
+        )
+
+        self.assertEqual(registros, [{"id": 51}, {"id": 52}])
+        self.assertEqual(total, 140)
+
+    def test_primeira_pagina_padrao_nao_envia_parametros(self) -> None:
+        def handler(request: httpx.Request) -> httpx.Response:
+            self.assertEqual(request.url.query, b"")
+            return httpx.Response(200, json=[{"id": 1}])
+
+        registros, total = self._cliente(handler).listar_medicos_pagina("token")
+
+        self.assertEqual(registros, [{"id": 1}])
+        self.assertIsNone(total)
+
+    def test_todos_percorre_as_paginas_ate_o_total(self) -> None:
+        paginas: list[bytes] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            paginas.append(request.url.query)
+            pagina = int(request.url.params["page"])
+            itens = {1: [{"id": 1}, {"id": 2}], 2: [{"id": 3}]}[pagina]
+            return httpx.Response(200, json={"itemsTotal": 3, "items": itens})
+
+        with patch("gestao_hospitalar.xano_client.POR_PAGINA_REFERENCIA", 2):
+            todos = self._cliente(handler).listar_todos_medicos("token")
+
+        self.assertEqual([r["id"] for r in todos], [1, 2, 3])
+        self.assertEqual(paginas, [b"page=1&per_page=2", b"page=2&per_page=2"])
+
+    def test_todos_com_lista_simples_nao_repete_registros(self) -> None:
+        chamadas = 0
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            nonlocal chamadas
+            chamadas += 1
+            return httpx.Response(200, json=[{"id": 1}, {"id": 2}, {"id": 3}])
+
+        with patch("gestao_hospitalar.xano_client.POR_PAGINA_REFERENCIA", 2):
+            todos = self._cliente(handler).listar_todos_pacientes("token")
+
+        self.assertEqual([r["id"] for r in todos], [1, 2, 3])
+        self.assertEqual(chamadas, 2)
+
+    def test_todos_respeita_o_limite_de_seguranca(self) -> None:
+        def handler(request: httpx.Request) -> httpx.Response:
+            pagina = int(request.url.params["page"])
+            return httpx.Response(
+                200,
+                json={
+                    "itemsTotal": 10_000,
+                    "items": [{"id": pagina * 10 + i} for i in range(2)],
+                },
+            )
+
+        with patch("gestao_hospitalar.xano_client.POR_PAGINA_REFERENCIA", 2), patch(
+            "gestao_hospitalar.xano_client.LIMITE_REGISTROS_REFERENCIA", 6
+        ):
+            todos = self._cliente(handler).listar_todos_pacientes("token")
+
+        self.assertEqual(len(todos), 6)
+
+    def test_todos_com_lista_vazia(self) -> None:
+        cliente = self._cliente(lambda request: httpx.Response(200, json=[]))
+
+        self.assertEqual(cliente.listar_todos_medicos("token"), [])
+
+class XanoClientContagemTests(unittest.TestCase):
+    @staticmethod
+    def _cliente(handler) -> XanoClient:
+        return XanoClient(
+            XanoConfig("https://example.xano.io/api:test", None, 5),
+            transport=httpx.MockTransport(handler),
+        )
+
+    def test_contagem_usa_total_da_paginacao_sem_baixar_a_lista(self) -> None:
+        chamadas: list[bytes] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            chamadas.append(request.url.query)
+            self.assertEqual(request.url.path, "/api:test/patients")
+            self.assertEqual(request.headers["authorization"], "session-token")
+            return httpx.Response(
+                200,
+                json={"itemsTotal": 140, "items": [{"id": 1}]},
+            )
+
+        total = self._cliente(handler).contar_pacientes("session-token")
+
+        self.assertEqual(total, 140)
+        self.assertEqual(chamadas, [b"page=1&per_page=1"])
+
+    def test_contagem_com_lista_simples_que_ignora_paginacao(self) -> None:
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(200, json=[{"id": 1}, {"id": 2}, {"id": 3}])
+
+        self.assertEqual(self._cliente(handler).contar_atendimentos("token"), 3)
+
+    def test_contagem_com_um_registro_confirma_na_lista_completa(self) -> None:
+        consultas: list[bytes] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            consultas.append(request.url.query)
+            if request.url.query:
+                return httpx.Response(200, json=[{"id": 1}])
+            return httpx.Response(200, json=[{"id": 1}, {"id": 2}])
+
+        self.assertEqual(self._cliente(handler).contar_medicos("token"), 2)
+        self.assertEqual(consultas, [b"page=1&per_page=1", b""])
+
+    def test_contagem_propaga_erro_do_xano(self) -> None:
+        cliente = self._cliente(lambda request: httpx.Response(401))
+
+        with self.assertRaises(XanoAuthenticationError):
+            cliente.contar_pacientes("token")
 
 if __name__ == "__main__":
     unittest.main()

@@ -10,6 +10,9 @@ class AuthStateMedicosTests(unittest.TestCase):
     def _state() -> AuthState:
         state = object.__new__(AuthState)
         state.dirty_vars = set()
+        state.pagina_medicos = 1
+        state.total_paginas_medicos = 1
+        state.total_registros_medicos = 0
         return state
 
     def test_editing_doctor_fills_form_from_list(self) -> None:
@@ -79,7 +82,8 @@ class AuthStateMedicosTests(unittest.TestCase):
         state.sucesso_medico = ""
 
         client = Mock()
-        client.listar_medicos.return_value = []
+        client.listar_todos_medicos.return_value = []
+        client.listar_medicos_pagina.return_value = ([], 0)
         client.criar_medico.return_value = 4
         with patch(
             "gestao_hospitalar.auth_state.XanoClient",
@@ -108,7 +112,8 @@ class AuthStateMedicosTests(unittest.TestCase):
         state.sucesso_medico = ""
 
         client = Mock()
-        client.listar_medicos.return_value = [{"id": "3", "crm": "123456/SP"}]
+        client.listar_todos_medicos.return_value = [{"id": "3", "crm": "123456/SP"}]
+        client.listar_medicos_pagina.return_value = ([], 0)
         with patch(
             "gestao_hospitalar.auth_state.XanoClient",
             return_value=client,
@@ -145,7 +150,7 @@ class AuthStateMedicosTests(unittest.TestCase):
         state.sucesso_medico = ""
 
         client = Mock()
-        client.listar_medicos.return_value = [{"id": "9", "crm": "123456/SP"}]
+        client.listar_todos_medicos.return_value = [{"id": "9", "crm": "123456/SP"}]
         with patch(
             "gestao_hospitalar.auth_state.XanoClient",
             return_value=client,
@@ -182,7 +187,7 @@ class AuthStateMedicosTests(unittest.TestCase):
         state.medicos = []
 
         client = Mock()
-        client.listar_medicos.return_value = []
+        client.listar_medicos_pagina.return_value = ([], 0)
         with patch(
             "gestao_hospitalar.auth_state.XanoClient",
             return_value=client,

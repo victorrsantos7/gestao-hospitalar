@@ -1,7 +1,10 @@
 """Estado de autenticação do Sistema de Gestão Hospitalar."""
 
+import asyncio
 import time
 from concurrent.futures import ThreadPoolExecutor
+from datetime import date
+from typing import Any
 
 import reflex as rx
 
@@ -25,6 +28,17 @@ from gestao_hospitalar.busca import filtrar_registros
 from gestao_hospitalar.crm import crm_valido, formatar_crm, normalizar_crm
 from gestao_hospitalar.cpf import cpf_valido, normalizar_cpf
 from gestao_hospitalar.logging_config import get_logger
+from gestao_hospitalar.painel import (
+    PERIODOS,
+    calcular_alertas,
+    emergencias_de_hoje,
+    eventos_atendimentos,
+    eventos_internacoes,
+    grafico,
+    mesclar_atividade,
+    serie_diaria,
+    totais_por_tipo,
+)
 from gestao_hospitalar.relatorios_calculo import (
     InternacaoAtiva,
     contagem_leitos,
@@ -113,6 +127,13 @@ CAMPOS_LIMPEZA: dict[str, dict[str, object]] = {
         "painel_internacoes_ativas": -1,
         "painel_atualizado_em": "",
         "erro_painel": "",
+        "painel_serie": [],
+        "painel_ev_atendimentos": [],
+        "painel_ev_internacoes": [],
+        "painel_amostra_atendimentos": -1,
+        "painel_periodo": "30",
+        "painel_graficos_carregando": False,
+        "painel_graficos_carregado": False,
     },
     "pacientes": {
         "pacientes": [],
@@ -348,6 +369,15 @@ class AuthState(rx.State):
     painel_atualizado_em: str = ""
     erro_painel: str = ""
     _painel_ts: float = 0.0
+    painel_periodo: str = "30"
+    painel_serie: list[dict[str, str]] = []
+    painel_ev_atendimentos: list[dict[str, str]] = []
+    painel_ev_internacoes: list[dict[str, str]] = []
+    painel_amostra_atendimentos: int = -1
+    painel_graficos_carregando: bool = False
+    painel_graficos_carregado: bool = False
+    _graficos_ts: float = 0.0
+    _graficos_versao: int = 0
 
     @rx.var
     def is_authenticated(self) -> bool:
@@ -556,6 +586,54 @@ class AuthState(rx.State):
         return list(TIPOS_CONVENIO)
 
     @rx.var
+    def painel_grafico(self) -> list[dict[str, Any]]:
+        return grafico(self.painel_serie, self.painel_periodo)
+
+    @rx.var
+    def painel_tipos(self) -> list[dict[str, Any]]:
+        if not self.painel_serie:
+            return []
+        return totais_por_tipo(self.painel_serie, self.painel_periodo)
+
+    @rx.var
+    def painel_periodo_rotulo(self) -> str:
+        return PERIODOS.get(self.painel_periodo, "")
+
+    @rx.var
+    def painel_emergencias_hoje(self) -> int:
+        return emergencias_de_hoje(self.painel_serie)
+
+    @rx.var
+    def painel_atividade(self) -> list[dict[str, str]]:
+        return mesclar_atividade(self.painel_ev_atendimentos, self.painel_ev_internacoes)
+
+    @rx.var
+    def painel_alertas(self) -> list[dict[str, str]]:
+        return calcular_alertas(
+            self.painel_taxa_ocupacao,
+            self.painel_leitos_livres,
+            self.painel_emergencias_hoje,
+        )
+
+    @rx.var
+    def painel_amostra_parcial(self) -> bool:
+        """Verdadeiro quando os gráficos usam menos atendimentos que o total."""
+        return 0 <= self.painel_amostra_atendimentos < self.painel_atendimentos
+
+    @rx.var
+    def painel_total_leitos(self) -> int:
+        if self.painel_leitos_livres < 0 or self.painel_leitos_ocupados < 0:
+            return -1
+        return self.painel_leitos_livres + self.painel_leitos_ocupados
+
+    @rx.var
+    def painel_taxa_ocupacao(self) -> int:
+        total = self.painel_total_leitos
+        if total <= 0:
+            return -1
+        return round(100 * self.painel_leitos_ocupados / total)
+
+    @rx.var
     def texto_paginacao_pacientes(self) -> str:
         return texto_paginacao(
             self.pagina_pacientes, self.total_registros_pacientes, len(self.pacientes)
@@ -679,6 +757,8 @@ class AuthState(rx.State):
         campos = CAMPOS_LIMPEZA.get(tela)
         if campos is None:
             return
+        if tela == "painel":
+            self._invalidar_graficos()
         for campo, valor in campos.items():
             setattr(
                 self,
@@ -720,8 +800,9 @@ class AuthState(rx.State):
 
     @rx.event
     def atualizar_resumo(self):
-        """Releitura forçada dos indicadores (botão Atualizar)."""
+        """Releitura forçada dos indicadores e, depois, dos gráficos (botão Atualizar)."""
         self._ler_resumo()
+        return AuthState.carregar_graficos(True)
 
     def _ler_resumo(self):
         """Lê só totais, em paralelo e sem guardar listas de pacientes no estado."""
@@ -781,9 +862,75 @@ class AuthState(rx.State):
                 for internacao in resultados["internacoes"]
                 if internacao.get("status") == "internado"
             )
+            self.painel_ev_internacoes = eventos_internacoes(resultados["internacoes"])
         if resultados:
             self._painel_ts = time.time()
             self.painel_atualizado_em = time.strftime("%H:%M")
+
+    @rx.event
+    def set_painel_periodo(self, value: str | list[str]):
+        escolhido = value[0] if isinstance(value, list) and value else value
+        if isinstance(escolhido, str) and escolhido in PERIODOS:
+            self.painel_periodo = escolhido
+
+    def _invalidar_graficos(self):
+        """Descarta leituras em curso e invalida o cache dos gráficos."""
+        self._graficos_versao += 1
+        self._graficos_ts = 0.0
+        self.painel_graficos_carregando = False
+        self.painel_graficos_carregado = False
+
+    @rx.event(background=True)
+    async def carregar_graficos(self, forcar: bool = False):
+        """Lê os atendimentos fora da fila de eventos e agrega série, tipos e atividade.
+
+        Roda em segundo plano para que indicadores e navegação não esperem a leitura
+        completa dos atendimentos (a fila de eventos do usuário fica livre).
+        """
+        async with self:
+            if not self.is_authenticated or not self.pode_ver_atendimentos:
+                return
+            recente = (
+                self.painel_graficos_carregado
+                and time.time() - self._graficos_ts < VALIDADE_PAINEL_SEGUNDOS
+            )
+            if not forcar and (recente or self.painel_graficos_carregando):
+                return
+            token = self._auth_token
+            self._graficos_versao += 1
+            versao = self._graficos_versao
+            self.painel_graficos_carregando = True
+
+        registros = None
+        try:
+            cliente = XanoClient(XanoConfig.from_env())
+            registros = await asyncio.to_thread(cliente.listar_todos_atendimentos, token)
+        except XanoError:
+            logger.warning("summary_result status=xano_error resource=atendimentos_graficos")
+        except Exception:
+            # Tarefa sem usuário esperando: o erro vai ao log e ao aviso do painel,
+            # e o indicador de carregamento nunca fica preso.
+            logger.exception("summary_result status=unexpected_error resource=atendimentos_graficos")
+
+        async with self:
+            if versao != self._graficos_versao:
+                return
+            try:
+                if self.is_authenticated and token == self._auth_token:
+                    self._aplicar_graficos(registros)
+            finally:
+                self.painel_graficos_carregando = False
+
+    def _aplicar_graficos(self, registros: list[dict[str, Any]] | None):
+        """Guarda só agregados e os 8 eventos mais recentes (não a lista completa)."""
+        if registros is None:
+            self.erro_painel = "Não foi possível carregar os gráficos."
+            return
+        self.painel_serie = serie_diaria(registros, date.today())
+        self.painel_ev_atendimentos = eventos_atendimentos(registros)
+        self.painel_amostra_atendimentos = len(registros)
+        self.painel_graficos_carregado = True
+        self._graficos_ts = time.time()
 
     @rx.event
     def set_nome_paciente(self, value: str):
@@ -1099,6 +1246,12 @@ class AuthState(rx.State):
         self.painel_atualizado_em = ""
         self.erro_painel = ""
         self._painel_ts = 0.0
+        self.painel_serie = []
+        self.painel_ev_atendimentos = []
+        self.painel_ev_internacoes = []
+        self.painel_amostra_atendimentos = -1
+        self.painel_periodo = "30"
+        self._invalidar_graficos()
         return rx.redirect("/")
 
     @rx.event

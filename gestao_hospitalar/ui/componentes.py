@@ -272,7 +272,7 @@ def estado_vazio(icone_nome: str, titulo: str, texto: str) -> rx.Component:
     )
 
 
-def badge_status(valor) -> rx.Component:
+def badge_status(valor, texto=None) -> rx.Component:
     """Badge com cor semântica por valor de status/tipo."""
     cor = rx.match(
         valor,
@@ -284,11 +284,13 @@ def badge_status(valor) -> rx.Component:
         ("plano", "blue"),
         ("consulta", "blue"),
         ("emergencia", "red"),
+        ("internação", "amber"),
+        ("atendimento", "blue"),
         ("retorno", "violet"),
         "gray",
     )
     return rx.badge(
-        valor,
+        valor if texto is None else texto,
         color_scheme=cor,
         variant="soft",
         radius="full",
@@ -327,7 +329,7 @@ def bloqueado():
     return (AuthState.acao_em_andamento != "") | ~AuthState.is_hydrated
 
 
-def _carregando():
+def carregando():
     """Verdadeiro antes da hidratação do estado e durante o on_load da página."""
     return ~AuthState.is_hydrated | AuthState.carregando_pagina
 
@@ -348,7 +350,7 @@ def carregando_lista() -> rx.Component:
 def indicador_atualizando() -> rx.Component:
     """Aviso discreto enquanto uma leitura nova substitui a anterior."""
     return rx.cond(
-        _carregando(),
+        carregando(),
         rx.hstack(
             rx.spinner(size="1"),
             rx.text("Atualizando", size="1", color="var(--gh-muted)"),
@@ -414,7 +416,7 @@ def secao_lista(
             filtrados.length() > 0,
             tabela(colunas, rx.foreach(filtrados, render_linha)),
             rx.cond(
-                _carregando(),
+                carregando(),
                 carregando_lista(),
                 rx.cond(
                     AuthState.termo_busca != "",
@@ -475,19 +477,64 @@ def data_br(valor) -> rx.Component:
     )
 
 
-def metrica(titulo: str, valor, icone_nome: str, cor: str = "teal", detalhe: str = "") -> rx.Component:
+def metrica(
+    titulo: str,
+    valor,
+    icone_nome: str,
+    cor: str = "teal",
+    detalhe: str = "",
+    compacta: bool = False,
+) -> rx.Component:
+    """Indicador padrão, com variante compacta usada apenas no painel."""
+    if compacta:
+        return rx.card(
+            rx.hstack(
+                icone_destaque(icone_nome, cor),
+                rx.vstack(
+                    rx.cond(
+                        carregando() & (valor <= 0),
+                        rx.skeleton(rx.heading("00", size="5"), loading=True),
+                        rx.heading(
+                            rx.cond(valor < 0, "—", valor),
+                            size="5",
+                            weight="bold",
+                            class_name="gh-metrica-valor",
+                        ),
+                    ),
+                    rx.text(titulo, size="1", color="var(--gh-muted)"),
+                    spacing="0",
+                    align="start",
+                ),
+                spacing="3",
+                align="center",
+                width="100%",
+            ),
+            class_name="gh-card gh-metrica gh-metrica--compacta",
+            size="1",
+        )
+
     filhos = [
         rx.hstack(
             rx.text(titulo, size="2", weight="medium", color="var(--gh-muted)"),
             rx.spacer(),
-            rx.center(icone(icone_nome, 16), class_name="gh-metrica-icone", color=f"var(--{cor}-11)", background=f"var(--{cor}-3)"),
+            rx.center(
+                icone(icone_nome, 16),
+                class_name="gh-metrica-icone",
+                color=f"var(--{cor}-11)",
+                background=f"var(--{cor}-3)",
+            ),
             width="100%",
             align="center",
         ),
         rx.cond(
-            _carregando() & (valor <= 0),
+            carregando() & (valor <= 0),
             rx.skeleton(rx.heading("00", size="6"), loading=True),
-            rx.heading(rx.cond(valor < 0, "—", valor), size="6", weight="bold", class_name="gh-metrica-valor"),
+            rx.heading(
+                rx.cond(valor < 0, "—", valor),
+                size="6",
+                weight="bold",
+                class_name="gh-metrica-valor",
+            ),
         ),
     ]
     if detalhe:
@@ -496,4 +543,14 @@ def metrica(titulo: str, valor, icone_nome: str, cor: str = "teal", detalhe: str
         rx.vstack(*filhos, spacing="1", align="start", width="100%"),
         class_name="gh-card gh-metrica",
         size="2",
+    )
+
+
+def icone_destaque(icone_nome: str, cor: str = "teal") -> rx.Component:
+    """Ícone em quadro colorido, usado nos indicadores do painel."""
+    return rx.center(
+        icone(icone_nome, 18),
+        class_name="gh-metrica-icone gh-metrica-icone--destaque",
+        color=f"var(--{cor}-11)",
+        background=f"var(--{cor}-3)",
     )

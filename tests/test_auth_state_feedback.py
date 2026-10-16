@@ -1,4 +1,5 @@
 import unittest
+from datetime import date, timedelta
 from unittest.mock import Mock, patch
 
 from gestao_hospitalar.auth_state import (
@@ -680,6 +681,339 @@ class AuthStateCrmDuplicadoTests(unittest.TestCase):
         cliente.listar_todos_medicos.assert_called_once()
         cliente.criar_medico.assert_not_called()
         self.assertIn("CRM", state.erro_medico)
+
+class OcupacaoDePainelTests(unittest.TestCase):
+    @staticmethod
+    def _state(livres: int, ocupados: int) -> AuthState:
+        state = object.__new__(AuthState)
+        state.dirty_vars = set()
+        state.painel_leitos_livres = livres
+        state.painel_leitos_ocupados = ocupados
+        return state
+
+    def test_taxa_arredonda_a_porcentagem_de_ocupados(self) -> None:
+        state = self._state(livres=1, ocupados=2)
+
+        self.assertEqual(state.painel_total_leitos, 3)
+        self.assertEqual(state.painel_taxa_ocupacao, 67)
+
+    def test_sem_leitos_ou_sem_leitura_a_taxa_e_desconhecida(self) -> None:
+        self.assertEqual(self._state(0, 0).painel_taxa_ocupacao, -1)
+        self.assertEqual(self._state(-1, -1).painel_taxa_ocupacao, -1)
+        self.assertEqual(self._state(-1, -1).painel_total_leitos, -1)
+
+    def test_extremos(self) -> None:
+        self.assertEqual(self._state(0, 4).painel_taxa_ocupacao, 100)
+        self.assertEqual(self._state(4, 0).painel_taxa_ocupacao, 0)
+
+
+class PainelGraficosEstadoTests(unittest.TestCase):
+    @staticmethod
+    def _state() -> AuthState:
+        state = object.__new__(AuthState)
+        state.dirty_vars = set()
+        state.painel_periodo = "30"
+        state.painel_serie = []
+        state.painel_ev_atendimentos = []
+        state.painel_ev_internacoes = []
+        state.painel_amostra_atendimentos = -1
+        state.painel_atendimentos = -1
+        state.painel_leitos_livres = -1
+        state.painel_leitos_ocupados = -1
+        state.painel_graficos_carregado = False
+        state.erro_painel = ""
+        object.__setattr__(state, "_backend_vars", {})
+        state._graficos_ts = 0.0
+        state._graficos_versao = 0
+        return state
+
+    @staticmethod
+    def _registros() -> list[dict]:
+        hoje = date.today()
+        return [
+            {"data_atendimento": hoje.isoformat(), "tipo": "emergencia", "paciente_nome": "Ana"},
+            {"data_atendimento": hoje.isoformat(), "tipo": "consulta", "paciente_nome": "Bia"},
+            {"data_atendimento": (hoje - timedelta(days=3)).isoformat(), "tipo": "retorno", "paciente_nome": "Cida"},
+        ]
+
+    def test_aplicar_guarda_agregados_e_nao_a_lista_completa(self) -> None:
+        state = self._state()
+
+        state._aplicar_graficos(self._registros())
+
+        self.assertEqual(len(state.painel_serie), 84)
+        self.assertEqual(state.painel_amostra_atendimentos, 3)
+        self.assertTrue(state.painel_graficos_carregado)
+        self.assertGreater(state._graficos_ts, 0)
+        self.assertEqual(len(state.painel_ev_atendimentos), 3)
+        self.assertEqual(state.painel_ev_atendimentos[0]["detalhe"], "Bia")
+
+    def test_falha_informa_erro_e_preserva_dados_anteriores(self) -> None:
+        state = self._state()
+        state._aplicar_graficos(self._registros())
+
+        state._aplicar_graficos(None)
+
+        self.assertIn("gráficos", state.erro_painel)
+        self.assertEqual(len(state.painel_serie), 84)
+        self.assertTrue(state.painel_graficos_carregado)
+
+    def test_variaveis_calculadas_acompanham_a_serie(self) -> None:
+        state = self._state()
+        state._aplicar_graficos(self._registros())
+
+        self.assertEqual(len(state.painel_grafico), 30)
+        self.assertEqual(state.painel_grafico[-1]["atendimentos"], 2)
+        self.assertEqual(sum(t["total"] for t in state.painel_tipos), 3)
+        self.assertEqual(state.painel_emergencias_hoje, 1)
+        self.assertEqual(state.painel_periodo_rotulo, "30 dias")
+
+    def test_trocar_periodo_muda_grafico_e_tipos(self) -> None:
+        state = self._state()
+        state._aplicar_graficos(self._registros())
+
+        state.set_painel_periodo("7")
+        self.assertEqual(len(state.painel_grafico), 7)
+        state.set_painel_periodo(["semanas"])
+        self.assertEqual(len(state.painel_grafico), 12)
+        self.assertEqual(state.painel_periodo_rotulo, "12 semanas")
+
+    def test_periodo_invalido_e_ignorado(self) -> None:
+        state = self._state()
+
+        state.set_painel_periodo("abc")
+        state.set_painel_periodo([])
+        state.set_painel_periodo(["999"])
+
+        self.assertEqual(state.painel_periodo, "30")
+
+    def test_sem_leitura_nao_ha_pontos_nem_tipos(self) -> None:
+        state = self._state()
+
+        self.assertEqual(state.painel_grafico, [])
+        self.assertEqual(state.painel_tipos, [])
+        self.assertEqual(state.painel_emergencias_hoje, -1)
+
+    def test_alertas_combinam_ocupacao_leitos_e_emergencias(self) -> None:
+        state = self._state()
+        state._aplicar_graficos(self._registros())
+        state.painel_leitos_ocupados = 9
+        state.painel_leitos_livres = 1
+
+        textos = [a["texto"] for a in state.painel_alertas]
+
+        self.assertEqual(
+            textos,
+            [
+                "Ocupação crítica: 90% dos leitos em uso.",
+                "Poucos leitos livres: 1.",
+                "1 atendimento de emergência hoje.",
+            ],
+        )
+
+    def test_atividade_mescla_atendimentos_e_internacoes(self) -> None:
+        state = self._state()
+        state.painel_ev_atendimentos = [{"tipo": "atendimento", "data": "2026-10-10", "titulo": "A", "detalhe": ""}]
+        state.painel_ev_internacoes = [{"tipo": "alta", "data": "2026-10-12", "titulo": "B", "detalhe": ""}]
+
+        self.assertEqual([e["titulo"] for e in state.painel_atividade], ["B", "A"])
+
+    def test_amostra_parcial_quando_ha_menos_registros_que_o_total(self) -> None:
+        state = self._state()
+        state.painel_atendimentos = 5000
+        state.painel_amostra_atendimentos = 2000
+        self.assertTrue(state.painel_amostra_parcial)
+
+        state.painel_amostra_atendimentos = 5000
+        self.assertFalse(state.painel_amostra_parcial)
+        state.painel_amostra_atendimentos = -1
+        self.assertFalse(state.painel_amostra_parcial)
+
+    def test_limpar_painel_remove_graficos_e_atividade(self) -> None:
+        state = self._state()
+        state._aplicar_graficos(self._registros())
+        state.set_painel_periodo("7")
+        for campo in (
+            "painel_pacientes",
+            "painel_medicos",
+            "painel_atendimentos",
+            "painel_leitos_livres",
+            "painel_leitos_ocupados",
+            "painel_internacoes_ativas",
+        ):
+            setattr(state, campo, 3)
+        state.painel_atualizado_em = "10:00"
+
+        state.limpar_tela("painel")
+
+        self.assertEqual(state.painel_serie, [])
+        self.assertEqual(state.painel_ev_atendimentos, [])
+        self.assertFalse(state.painel_graficos_carregado)
+        self.assertFalse(state.painel_graficos_carregando)
+        self.assertEqual(state.painel_amostra_atendimentos, -1)
+        self.assertEqual(state.painel_periodo, "30")
+        self.assertEqual(state._graficos_ts, 0.0)
+        self.assertEqual(state._graficos_versao, 1)
+
+
+class _EstadoFalso:
+    """Estado mínimo para exercitar o evento em segundo plano sem o gerenciador do Reflex."""
+
+    def __init__(self, autenticado: bool = True, pode: bool = True) -> None:
+        self.is_authenticated = autenticado
+        self.pode_ver_atendimentos = pode
+        self._auth_token = "token"
+        self.painel_graficos_carregando = False
+        self.painel_graficos_carregado = False
+        self._graficos_ts = 0.0
+        self._graficos_versao = 0
+        self.painel_serie = []
+        self.painel_ev_atendimentos = []
+        self.painel_amostra_atendimentos = -1
+        self.erro_painel = ""
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *excecao) -> None:
+        return None
+
+    _aplicar_graficos = AuthState._aplicar_graficos
+
+
+class CarregarGraficosSegundoPlanoTests(unittest.IsolatedAsyncioTestCase):
+    @staticmethod
+    def _cliente(**configuracao) -> Mock:
+        cliente = Mock()
+        cliente.listar_todos_atendimentos.return_value = [
+            {"data_atendimento": date.today().isoformat(), "tipo": "consulta", "paciente_nome": "Ana"}
+        ]
+        for nome, valor in configuracao.items():
+            setattr(cliente.listar_todos_atendimentos, nome, valor)
+        return cliente
+
+    async def _executar(self, estado: _EstadoFalso, cliente: Mock, forcar: bool = False) -> None:
+        with patch(
+            "gestao_hospitalar.auth_state.XanoClient", return_value=cliente
+        ), patch(
+            "gestao_hospitalar.auth_state.XanoConfig.from_env", return_value=Mock()
+        ):
+            await AuthState.carregar_graficos.fn(estado, forcar)
+
+    async def test_carrega_e_libera_o_indicador(self) -> None:
+        estado = _EstadoFalso()
+
+        await self._executar(estado, self._cliente())
+
+        self.assertTrue(estado.painel_graficos_carregado)
+        self.assertFalse(estado.painel_graficos_carregando)
+        self.assertEqual(len(estado.painel_serie), 84)
+
+    async def test_erro_do_xano_informa_e_libera_o_indicador(self) -> None:
+        estado = _EstadoFalso()
+
+        await self._executar(estado, self._cliente(side_effect=XanoError("falha")))
+
+        self.assertFalse(estado.painel_graficos_carregando)
+        self.assertFalse(estado.painel_graficos_carregado)
+        self.assertIn("gráficos", estado.erro_painel)
+
+    async def test_erro_inesperado_nao_deixa_o_indicador_preso(self) -> None:
+        estado = _EstadoFalso()
+
+        await self._executar(estado, self._cliente(side_effect=ValueError("inesperado")))
+
+        self.assertFalse(estado.painel_graficos_carregando)
+        self.assertIn("gráficos", estado.erro_painel)
+
+    async def test_papel_sem_permissao_nao_consulta(self) -> None:
+        estado = _EstadoFalso(pode=False)
+        cliente = self._cliente()
+
+        await self._executar(estado, cliente)
+
+        cliente.listar_todos_atendimentos.assert_not_called()
+        self.assertFalse(estado.painel_graficos_carregando)
+
+    async def test_leitura_recente_e_reaproveitada_mas_atualizar_forca(self) -> None:
+        estado = _EstadoFalso()
+        cliente = self._cliente()
+        await self._executar(estado, cliente)
+
+        await self._executar(estado, cliente)
+        self.assertEqual(cliente.listar_todos_atendimentos.call_count, 1)
+
+        await self._executar(estado, cliente, forcar=True)
+        self.assertEqual(cliente.listar_todos_atendimentos.call_count, 2)
+
+    async def test_leitura_em_andamento_nao_duplica_sem_forcar(self) -> None:
+        estado = _EstadoFalso()
+        estado.painel_graficos_carregando = True
+        cliente = self._cliente()
+
+        await self._executar(estado, cliente)
+
+        cliente.listar_todos_atendimentos.assert_not_called()
+
+    async def test_atualizar_substitui_leitura_em_andamento(self) -> None:
+        estado = _EstadoFalso()
+        estado.painel_graficos_carregando = True
+        cliente = self._cliente()
+
+        await self._executar(estado, cliente, forcar=True)
+
+        cliente.listar_todos_atendimentos.assert_called_once_with("token")
+        self.assertTrue(estado.painel_graficos_carregado)
+        self.assertFalse(estado.painel_graficos_carregando)
+
+    async def test_sessao_encerrada_durante_a_leitura_descarta_o_resultado(self) -> None:
+        estado = _EstadoFalso()
+        cliente = self._cliente()
+        registros = cliente.listar_todos_atendimentos.return_value
+
+        def encerra_antes_de_aplicar(token):
+            estado.is_authenticated = False
+            return registros
+
+        cliente.listar_todos_atendimentos.side_effect = encerra_antes_de_aplicar
+
+        await self._executar(estado, cliente)
+
+        self.assertFalse(estado.painel_graficos_carregado)
+        self.assertFalse(estado.painel_graficos_carregando)
+
+    async def test_nova_sessao_descarta_resultado_da_sessao_anterior(self) -> None:
+        estado = _EstadoFalso()
+        cliente = self._cliente()
+        registros = cliente.listar_todos_atendimentos.return_value
+
+        def troca_sessao(token):
+            estado._auth_token = "novo-token"
+            return registros
+
+        cliente.listar_todos_atendimentos.side_effect = troca_sessao
+
+        await self._executar(estado, cliente)
+
+        self.assertFalse(estado.painel_graficos_carregado)
+        self.assertFalse(estado.painel_graficos_carregando)
+
+    async def test_resultado_invalidado_durante_a_leitura_e_descartado(self) -> None:
+        estado = _EstadoFalso()
+        cliente = self._cliente()
+        registros = cliente.listar_todos_atendimentos.return_value
+
+        def invalida_antes_de_aplicar(token):
+            AuthState._invalidar_graficos(estado)
+            return registros
+
+        cliente.listar_todos_atendimentos.side_effect = invalida_antes_de_aplicar
+
+        await self._executar(estado, cliente)
+
+        self.assertFalse(estado.painel_graficos_carregado)
+        self.assertFalse(estado.painel_graficos_carregando)
+
 
 if __name__ == "__main__":
     unittest.main()

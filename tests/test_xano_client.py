@@ -753,6 +753,20 @@ class XanoClientPaginacaoTests(unittest.TestCase):
 
         self.assertEqual(len(todos), 6)
 
+    def test_todos_os_atendimentos_normaliza_e_percorre_paginas(self) -> None:
+        def handler(request: httpx.Request) -> httpx.Response:
+            pagina = int(request.url.params["page"])
+            itens = {
+                1: [{"id": 1, "paciente": {"nome": "Ana"}, "data_atendimento": "2026-10-16", "tipo": "consulta"}],
+                2: [{"id": 2, "paciente_id": 7, "data_atendimento": "2026-10-15", "tipo": "retorno"}],
+            }[pagina]
+            return httpx.Response(200, json={"itemsTotal": 2, "items": itens})
+
+        with patch("gestao_hospitalar.xano_client.POR_PAGINA_REFERENCIA", 1):
+            registros = self._cliente(handler).listar_todos_atendimentos("token")
+
+        self.assertEqual([r["paciente_nome"] for r in registros], ["Ana", "#7"])
+        self.assertNotIn("paciente", registros[0])
     def test_todos_com_lista_vazia(self) -> None:
         cliente = self._cliente(lambda request: httpx.Response(200, json=[]))
 

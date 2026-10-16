@@ -516,6 +516,13 @@ class XanoClient:
             for registro in self._extract_records(self._json(response))
         ]
 
+    def listar_todos_atendimentos(self, auth_token: str) -> list[dict[str, Any]]:
+        """Todos os atendimentos (percorre páginas, com limite), já normalizados."""
+        return [
+            self._normalizar_atendimento(registro)
+            for registro in self._listar_todos("/atendimentos", auth_token)
+        ]
+
     def consultar_atendimento(
         self,
         auth_token: str,

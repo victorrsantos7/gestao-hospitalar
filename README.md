@@ -111,8 +111,10 @@ Convenções para novas telas:
   1279 px e gaveta até 900 px. Formulários usam grade_campos e a classe
   gh-form-col, e listas devem manter base larga para o formulário empilhar em
   vez de cortar colunas.
-- O painel lê apenas totais (contagem do Xano, em paralelo, com cache de 60 s) e
-  não mantém listas de pacientes no navegador.
+- O painel lê totais (contagem do Xano, em paralelo, com cache de 60 s) e agrega os
+  atendimentos no servidor (painel.py) em segundo plano; no navegador ficam só
+  agregados e os 8 eventos mais recentes, nunca listas completas. Limiares dos
+  alertas em painel.py.
 - Listas paginadas pelo Xano (pacientes e médicos) usam listar_*_pagina,
   mudar_pagina e o rodapé paginacao; a busca vale só para a página exibida.
   Seletores de formulário que precisam de todos os registros usam as listas de

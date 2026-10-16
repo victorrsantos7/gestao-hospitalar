@@ -151,6 +151,31 @@ body {
   .gh-conteudo { padding: 20px 16px 40px; }
 }
 
+/* ---- Painel: análise (gráfico + resumos) e base (atividade + acessos) ---- */
+.gh-grid-analise {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 12px;
+  width: 100%;
+  align-items: start;
+}
+
+@media (max-width: 1100px) {
+  .gh-grid-analise { grid-template-columns: 1fr; }
+}
+
+.radix-themes .gh-atalho {
+  display: block;
+  padding: 8px 10px;
+  border-radius: 8px;
+  color: var(--gh-text);
+  transition: background-color 0.15s ease;
+}
+
+.radix-themes .gh-atalho:hover { background: var(--accent-3); }
+
+.gh-evento { border-bottom: 1px solid var(--gh-border); }
+.gh-evento:last-child { border-bottom: 0; }
 /* ---- Formulários: campos em colunas conforme a largura do cartão -------- */
 .gh-form-col { flex: 1 1 300px; min-width: 0; }
 
@@ -304,6 +329,7 @@ body {
 }
 
 .gh-metrica-icone { width: 30px; height: 30px; border-radius: 8px; }
+.gh-metrica-icone--destaque { width: 36px; height: 36px; border-radius: 10px; }
 
 .gh-titulo-pagina { color: var(--gh-text); line-height: 1.15; }
 .gh-titulo-secao { color: var(--gh-text); }
@@ -323,6 +349,7 @@ body {
   --card-padding: 14px;
   transition: box-shadow 0.2s ease, transform 0.2s ease;
 }
+.radix-themes .gh-metrica--compacta { --card-padding: 12px; }
 .gh-metrica:hover { box-shadow: var(--gh-shadow-md); transform: translateY(-2px); }
 .gh-metrica-valor { letter-spacing: -0.02em; color: var(--gh-text); }
 

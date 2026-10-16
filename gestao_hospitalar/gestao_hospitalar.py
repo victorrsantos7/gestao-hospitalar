@@ -29,7 +29,10 @@ app.add_page(
     dashboard,
     route="/dashboard",
     title="Painel | Gestão Hospitalar",
-    on_load=ao_carregar(AuthState.carregar_resumo, AuthState.check_auth),
+    on_load=[
+        *ao_carregar(AuthState.carregar_resumo, AuthState.check_auth),
+        AuthState.carregar_graficos,
+    ],
 )
 app.add_page(
     pacientes,

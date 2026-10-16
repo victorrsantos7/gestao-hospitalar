@@ -82,6 +82,36 @@ deve ser válida e não futura.
 Os resultados da validação operacional estão em
 [docs/validacao-cadastro-pacientes.md](docs/validacao-cadastro-pacientes.md).
 
+## Interface
+
+O visual é definido em três camadas, todas em Reflex:
+
+- `rxconfig.py` configura o tema Radix (`RadixThemesPlugin(theme=tema_app())`).
+- `assets/styles.css` guarda os tokens (`--gh-*`), a escala de cor petróleo e as
+  classes `gh-*`. A fonte Inter (SIL OFL) é hospedada em `assets/fonts/` e declarada no
+  próprio CSS, sem dependência de rede externa.
+- `gestao_hospitalar/ui/` reúne marca/SVG (`icones.py`), componentes de
+  formulário, tabela e feedback (`componentes.py`) e o layout com menu lateral
+  (`layout.py`). `NAVEGACAO` é a fonte única dos módulos do menu e dos atalhos
+  do painel.
+
+Convenções para novas telas:
+
+- Montar a página com `pagina(titulo, descricao, icone, rota, acoes, ...)`; a
+  rota define o item ativo do menu.
+- Usar `botao_acao`/`botao_icone` (carregamento, bloqueio de duplo clique e toast)
+  e `confirmar` para ações irreversíveis. O domínio informado precisa existir em
+  `CAMPOS_FEEDBACK` (`auth_state.py`).
+- Registrar a rota com `ao_carregar(...)` para exibir o carregamento da página e
+  declarar os campos da tela em `CAMPOS_LIMPEZA` para o botão **Limpar**.
+- **Atualizar** recarrega os dados do Xano; **Limpar** só esvazia a tela e não
+  exclui nada no servidor.
+- O painel lê apenas totais (contagem do Xano, em paralelo, com cache de 60 s) e
+  não mantém listas de pacientes no navegador.
+- Listas paginadas pelo Xano (pacientes e médicos) usam listar_*_pagina,
+  mudar_pagina e o rodapé paginacao; a busca vale só para a página exibida.
+  Seletores de formulário que precisam de todos os registros usam as listas de
+  referência (listar_todos_*), nunca a página exibida.
 ## Desenvolvimento
 
 Mudanças são conduzidas via OpenSpec, seguindo o ciclo Explore → Propose →

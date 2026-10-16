@@ -1,25 +1,421 @@
-input[placeholder],
-textarea[placeholder] {
-  background: #ffffff !important;
-  color: #111827 !important;
+/* ==========================================================================
+   Sistema de Gestão Hospitalar — design system
+   Tokens (--gh-*) + escala de accent petróleo sobre o tema Radix.
+   ========================================================================== */
+
+/* Inter (SIL OFL, ver assets/fonts/Inter-OFL.txt), hospedada localmente: sem
+   dependência de rede externa. Fonte variável, pesos 400 a 700. */
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url("/fonts/inter-latin-ext.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
 }
 
-input[placeholder]::placeholder,
-textarea[placeholder]::placeholder {
-  color: #243b53 !important;
-  opacity: 1 !important;
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url("/fonts/inter-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+:root {
+  --gh-page-bg: #f3f7f9;
+  --gh-surface: #ffffff;
+  --gh-border: #dce5ea;
+  --gh-text: #142c36;
+  --gh-muted: #5a7280;
+  --gh-sidebar-bg: #0a2b37;
+  --gh-sidebar-text: #c3d8e0;
+  --gh-sidebar-muted: #7f9fac;
+  --gh-sidebar-hover: rgba(255, 255, 255, 0.07);
+  --gh-sidebar-active: rgba(127, 211, 230, 0.16);
+  --gh-sidebar-w: 272px;
+  --gh-radius: 12px;
+  --gh-shadow-sm: 0 1px 2px rgba(10, 43, 55, 0.06), 0 1px 1px rgba(10, 43, 55, 0.04);
+  --gh-shadow-md: 0 10px 28px rgba(10, 43, 55, 0.09);
 }
 
-[data-placeholder] .rt-SelectTriggerInner {
-  color: #243b53 !important;
+/* ---- Tema Radix: accent petróleo, fonte e fundo ------------------------- */
+.radix-themes[data-accent-color] {
+  --accent-1: #f5fafb;
+  --accent-2: #eaf5f8;
+  --accent-3: #d5ebf1;
+  --accent-4: #bde0e9;
+  --accent-5: #a1d1de;
+  --accent-6: #7fbccd;
+  --accent-7: #56a3b8;
+  --accent-8: #2b869f;
+  --accent-9: #0e6179;
+  --accent-10: #0b536a;
+  --accent-11: #0a4a5e;
+  --accent-12: #0a2f3b;
+  --accent-a1: rgba(14, 97, 121, 0.02);
+  --accent-a2: rgba(14, 97, 121, 0.05);
+  --accent-a3: rgba(14, 97, 121, 0.11);
+  --accent-a4: rgba(14, 97, 121, 0.17);
+  --accent-a5: rgba(14, 97, 121, 0.25);
+  --accent-a6: rgba(14, 97, 121, 0.34);
+  --accent-a7: rgba(14, 97, 121, 0.47);
+  --accent-a8: rgba(14, 97, 121, 0.7);
+  --accent-a9: rgba(14, 97, 121, 0.95);
+  --accent-a10: rgba(11, 83, 106, 0.96);
+  --accent-a11: rgba(10, 74, 94, 0.98);
+  --accent-a12: rgba(10, 47, 59, 0.98);
+  --accent-contrast: #ffffff;
+  --accent-surface: #eaf5f8cc;
+  --accent-indicator: #0e6179;
+  --accent-track: #0e6179;
+  --color-background: var(--gh-page-bg);
+  --default-font-family: Inter, "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+  --heading-font-family: var(--default-font-family);
+  --heading-font-weight: 700;
+  --heading-letter-spacing: -0.01em;
+  --cursor-button: pointer;
+  --cursor-link: pointer;
 }
 
-.patient-form-title,
-.patient-details-title {
-  color: #173b61 !important;
+body {
+  background: var(--gh-page-bg);
+  color: var(--gh-text);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
-.paciente-form-field input::placeholder {
-  color: #7c90a6 !important;
-  opacity: 1 !important;
+.radix-themes ::placeholder {
+  color: #5e7685;
+  opacity: 1;
+}
+
+/* ---- Estrutura -------------------------------------------------------- */
+.gh-shell {
+  display: flex;
+  min-height: 100vh;
+  width: 100%;
+}
+
+.gh-sidebar {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  width: var(--gh-sidebar-w);
+  flex-shrink: 0;
+  padding: 24px 16px 20px;
+  background: linear-gradient(180deg, #0c3340 0%, var(--gh-sidebar-bg) 100%);
+  color: var(--gh-sidebar-text);
+  overflow-y: auto;
+}
+
+.gh-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.gh-conteudo {
+  width: 100%;
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 24px 28px 40px;
+  animation: gh-entrada 0.28s ease-out;
+}
+
+@keyframes gh-entrada {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+
+.gh-barra-mobile {
+  display: none;
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  padding: 10px 16px;
+  background: var(--gh-surface);
+  border-bottom: 1px solid var(--gh-border);
+}
+
+.gh-drawer-conteudo {
+  height: 100%;
+  padding: 24px 16px 20px;
+  background: linear-gradient(180deg, #0c3340 0%, var(--gh-sidebar-bg) 100%);
+  color: var(--gh-sidebar-text);
+  box-shadow: var(--gh-shadow-md);
+}
+
+@media (max-width: 900px) {
+  .gh-sidebar { display: none; }
+  .gh-barra-mobile { display: flex; }
+  .gh-conteudo { padding: 20px 16px 40px; }
+}
+
+/* ---- Navegação lateral ----------------------------------------------- */
+.gh-marca-nome { color: #ffffff; }
+.gh-marca-sub { color: var(--gh-sidebar-muted); }
+
+.gh-nav-secao {
+  margin-top: 8px;
+  padding-left: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  color: var(--gh-sidebar-muted);
+}
+
+.gh-sidebar .gh-nav-item,
+.gh-drawer-conteudo .gh-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 10px;
+  color: var(--gh-sidebar-text);
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.gh-sidebar .gh-nav-item:hover,
+.gh-drawer-conteudo .gh-nav-item:hover {
+  background: var(--gh-sidebar-hover);
+  color: #ffffff;
+}
+
+.gh-sidebar .gh-nav-item--ativo,
+.gh-drawer-conteudo .gh-nav-item--ativo {
+  background: var(--gh-sidebar-active);
+  color: #ffffff;
+  box-shadow: inset 3px 0 0 #7fd3e6;
+}
+
+.gh-divisor {
+  width: 100%;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.gh-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  border-radius: 999px;
+  background: #1b8aa6;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.gh-avatar--claro {
+  width: 34px;
+  height: 34px;
+  background: var(--accent-3);
+  color: var(--accent-11);
+}
+
+.gh-usuario-nome {
+  color: #ffffff;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 170px;
+}
+
+.gh-usuario-papel { color: var(--gh-sidebar-muted); }
+
+.gh-btn-sair {
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: #ffffff !important;
+}
+
+.gh-btn-sair:hover { background: rgba(255, 255, 255, 0.16) !important; }
+
+/* ---- Cabeçalhos, cartões e seções ------------------------------------ */
+.gh-icone-pagina,
+.gh-icone-secao,
+.gh-metrica-icone {
+  flex-shrink: 0;
+  border-radius: 12px;
+}
+
+.gh-icone-pagina {
+  width: 40px;
+  height: 40px;
+  background: var(--accent-3);
+  color: var(--accent-11);
+}
+
+.gh-icone-secao {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: var(--accent-3);
+  color: var(--accent-11);
+}
+
+.gh-metrica-icone { width: 30px; height: 30px; border-radius: 8px; }
+
+.gh-titulo-pagina { color: var(--gh-text); line-height: 1.15; }
+.gh-titulo-secao { color: var(--gh-text); }
+.gh-rotulo { color: #284552; }
+
+.radix-themes .gh-card {
+  border: 1px solid var(--gh-border);
+  border-radius: var(--gh-radius);
+  background: var(--gh-surface);
+  box-shadow: var(--gh-shadow-sm);
+  --card-border-width: 0px;
+  --card-background-color: var(--gh-surface);
+  --card-padding: 16px;
+}
+
+.radix-themes .gh-metrica {
+  --card-padding: 14px;
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+.gh-metrica:hover { box-shadow: var(--gh-shadow-md); transform: translateY(-2px); }
+.gh-metrica-valor { letter-spacing: -0.02em; color: var(--gh-text); }
+
+.gh-vazio-icone {
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  background: var(--accent-3);
+  color: var(--accent-10);
+}
+
+.gh-rotulo-detalhe { text-transform: uppercase; letter-spacing: 0.06em; }
+
+/* ---- Tabelas ---------------------------------------------------------- */
+.radix-themes .gh-tabela .rt-TableCell,
+.radix-themes .gh-tabela .rt-TableColumnHeaderCell {
+  vertical-align: middle;
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+
+.radix-themes .gh-tabela .rt-TableColumnHeaderCell {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--gh-muted);
+  white-space: nowrap;
+}
+
+.radix-themes .gh-tabela .rt-TableCell {
+  white-space: nowrap;
+  padding-left: 10px;
+  padding-right: 10px;
+}
+
+.radix-themes .gh-tabela .rt-TableCell.gh-celula-texto {
+  white-space: normal;
+  min-width: 220px;
+}
+
+/* Coluna de ações sempre visível, mesmo com rolagem horizontal */
+.radix-themes .gh-tabela .rt-TableRow > :last-child {
+  position: sticky;
+  right: 0;
+  background: var(--gh-surface);
+  box-shadow: inset 0 -1px 0 var(--gray-a5), -8px 0 8px -8px rgba(10, 43, 55, 0.18);
+}
+
+.radix-themes .gh-tabela .rt-TableRow:hover .rt-TableCell { background: var(--accent-2); }
+
+.gh-badge { text-transform: capitalize; font-weight: 600; }
+.gh-badge[class*="SUS"] { text-transform: none; }
+
+/* ---- Linha do tempo (histórico) --------------------------------------- */
+.gh-timeline {
+  position: relative;
+  padding-left: 30px;
+}
+
+.gh-timeline::before {
+  content: "";
+  position: absolute;
+  left: 10px;
+  top: 8px;
+  bottom: 8px;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--accent-5);
+}
+
+.gh-timeline-item { position: relative; padding-bottom: 20px; }
+.gh-timeline-item:last-child { padding-bottom: 0; }
+
+.gh-timeline-ponto {
+  position: absolute;
+  left: -30px;
+  top: 2px;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: var(--gh-surface);
+  border: 2px solid var(--accent-9);
+  box-shadow: 0 0 0 4px var(--accent-3);
+}
+
+/* ---- Leitos ----------------------------------------------------------- */
+.gh-leito {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid var(--gh-border);
+  border-radius: 12px;
+  background: var(--gh-surface);
+  transition: box-shadow 0.15s ease;
+}
+
+.gh-leito:hover { box-shadow: var(--gh-shadow-md); }
+.gh-leito--livre { border-left: 4px solid var(--green-9); }
+.gh-leito--ocupado { border-left: 4px solid var(--amber-9); }
+
+/* ---- Login ------------------------------------------------------------ */
+.gh-login {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  min-height: 100vh;
+  background: var(--gh-surface);
+}
+
+.gh-login-painel {
+  position: relative;
+  overflow: hidden;
+  min-height: 100%;
+  color: #ffffff;
+}
+
+.gh-login-painel-texto {
+  position: absolute;
+  left: 56px;
+  right: 56px;
+  bottom: 72px;
+}
+
+.gh-login-form {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(24px, 5vw, 64px);
+}
+
+@media (max-width: 900px) {
+  .gh-login { grid-template-columns: 1fr; }
+  .gh-login-painel { min-height: 220px; }
+  .gh-login-painel-texto { left: 24px; right: 24px; bottom: 24px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation: none !important;
+    transition: none !important;
+  }
 }

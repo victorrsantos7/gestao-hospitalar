@@ -3,227 +3,194 @@
 import reflex as rx
 
 from gestao_hospitalar.auth_state import AuthState
-from gestao_hospitalar.estilos import BOTAO_COMPACTO as _BOTAO_COMPACTO
+from gestao_hospitalar.ui.componentes import (
+    acoes_tela,
+    badge_status,
+    botao_acao,
+    botao_icone,
+    confirmar,
+    entrada,
+    area_texto,
+    grade_detalhes,
+    item_detalhe,
+    mensagem_erro,
+    secao,
+    secao_lista,
+    selecao,
+)
+from gestao_hospitalar.ui.icones import icone
+from gestao_hospitalar.ui.layout import pagina
 
 
 def formulario_convenio() -> rx.Component:
-    return rx.card(
-        rx.vstack(
-            rx.heading(
-                rx.cond(AuthState.editando_convenio, "Editar convênio", "Cadastrar convênio"),
-                size="5",
-                color="#000000",
+    return secao(
+        rx.cond(AuthState.editando_convenio, "Editar convênio", "Cadastrar convênio"),
+        "shield_check",
+        entrada(
+            "Nome do convênio",
+            AuthState.nome_convenio,
+            AuthState.set_nome_convenio,
+            "Ex.: Saúde Total",
+            obrigatorio=True,
+            max_length=120,
+        ),
+        selecao(
+            "Tipo de convênio",
+            AuthState.tipos_convenio,
+            AuthState.tipo_convenio,
+            AuthState.set_tipo_convenio,
+            "Selecione o tipo",
+            obrigatorio=True,
+        ),
+        area_texto(
+            "Cobertura",
+            AuthState.cobertura_convenio,
+            AuthState.set_cobertura_convenio,
+            "Descreva a cobertura",
+            obrigatorio=True,
+            max_length=500,
+        ),
+        mensagem_erro(AuthState.erro_convenio),
+        rx.hstack(
+            botao_acao(
+                rx.cond(AuthState.editando_convenio, "Atualizar convênio", "Cadastrar convênio"),
+                AuthState.salvar_convenio,
+                "salvar_convenio",
+                "convenio",
+                "save",
+                flex="1",
             ),
-            rx.input(
-                placeholder="Nome do convênio",
-                value=AuthState.nome_convenio,
-                on_change=AuthState.set_nome_convenio,
-                max_length=120,
-                width="100%",
-            ),
-            rx.select.root(
-                rx.select.trigger(
-                    placeholder="Tipo de convênio",
-                    width="100%",
-                    style={
-                        "backgroundColor": "white",
-                        "color": "#111827",
-                        "border": "1px solid #d7dee6",
-                        "textTransform": "capitalize",
-                        "&[data-placeholder] .rt-SelectTriggerInner": {
-                            "color": "#243b53 !important",
-                            "textTransform": "none",
-                        },
-                    },
+            rx.cond(
+                AuthState.editando_convenio,
+                rx.button(
+                    "Cancelar",
+                    on_click=AuthState.cancelar_edicao_convenio,
+                    variant="soft",
+                    color_scheme="gray",
+                    size="2",
+                    cursor="pointer",
                 ),
-                rx.select.content(
-                    rx.foreach(
-                        AuthState.tipos_convenio,
-                        lambda tipo: rx.select.item(
-                            tipo,
-                            value=tipo,
-                            style={"textTransform": "capitalize"},
-                        ),
-                    ),
-                ),
-                value=AuthState.tipo_convenio,
-                on_change=AuthState.set_tipo_convenio,
-            ),
-            rx.text_area(
-                placeholder="Cobertura",
-                value=AuthState.cobertura_convenio,
-                on_change=AuthState.set_cobertura_convenio,
-                max_length=500,
-                width="100%",
-                style={
-                    "border": "1px solid #d7dee6",
-                },
-            ),
-            rx.center(
-                rx.hstack(
-                    rx.button(
-                        rx.cond(AuthState.editando_convenio, "Atualizar", "Cadastrar"),
-                        on_click=AuthState.salvar_convenio,
-                        style=_BOTAO_COMPACTO,
-                    ),
-                    rx.cond(
-                        AuthState.editando_convenio,
-                        rx.button(
-                            "Cancelar",
-                            on_click=AuthState.cancelar_edicao_convenio,
-                            style=_BOTAO_COMPACTO,
-                            variant="soft",
-                        ),
-                    ),
-                ),
-                width="100%",
             ),
             spacing="3",
             width="100%",
         ),
-        background_color="white",
-        border="1px solid #dce6ef",
-        border_radius="10px",
-        box_shadow="0 8px 24px rgba(18, 57, 95, 0.06)",
-        width="100%",
     )
 
 
 def linha_convenio(convenio: dict[str, str]) -> rx.Component:
-    return rx.card(
-        rx.vstack(
+    return rx.table.row(
+        rx.table.row_header_cell(rx.text(convenio["nome"], weight="bold")),
+        rx.table.cell(badge_status(convenio["tipo"])),
+        rx.table.cell(
+            rx.text(convenio["cobertura"], size="2", color="var(--gh-muted)"),
+            class_name="gh-celula-texto",
+        ),
+        rx.table.cell(
             rx.hstack(
-                rx.vstack(
-                    rx.text(convenio["nome"], color="#000000", weight="bold"),
-                    rx.text(
-                        "Tipo: ",
-                        convenio["tipo"],
-                        color="#000000",
-                        style={"textTransform": "capitalize"},
-                    ),
-                    rx.text("Cobertura: ", convenio["cobertura"], color="#000000"),
-                    align="start",
-                    flex="1",
+                botao_icone(
+                    "eye",
+                    "Ver detalhes",
+                    AuthState.consultar_convenio(convenio["id"]),
+                    "ver_convenio_" + convenio["id"],
+                    "convenio",
+                    "teal",
                 ),
-                rx.vstack(
-                    rx.button(
-                        "Ver detalhes",
-                        on_click=AuthState.consultar_convenio(convenio["id"]),
-                        style=_BOTAO_COMPACTO,
-                    ),
-                    rx.cond(
-                        AuthState.pode_cadastrar_convenios,
-                        rx.hstack(
+                rx.cond(
+                    AuthState.pode_cadastrar_convenios,
+                    rx.hstack(
+                        rx.tooltip(
                             rx.icon_button(
-                                rx.icon("pencil", size=16),
+                                icone("pencil", 16),
                                 on_click=AuthState.editar_convenio(convenio["id"]),
                                 variant="soft",
+                                color_scheme="gray",
                                 size="2",
-                                radius="full",
-                                title="Editar",
+                                cursor="pointer",
+                                aria_label="Editar",
                             ),
+                            content="Editar",
+                        ),
+                        confirmar(
                             rx.icon_button(
-                                rx.icon("trash-2", size=16),
-                                on_click=AuthState.excluir_convenio(convenio["id"]),
+                                icone("trash_2", 16),
                                 variant="soft",
                                 color_scheme="red",
                                 size="2",
-                                radius="full",
-                                title="Excluir",
+                                cursor="pointer",
+                                aria_label="Excluir",
                             ),
-                            spacing="2",
-                            justify="center",
+                            "Excluir convênio?",
+                            "O convênio será removido da lista. Esta ação não pode ser desfeita.",
+                            "Excluir",
+                            AuthState.excluir_convenio(convenio["id"]),
+                            "excluir_convenio_" + convenio["id"],
+                            "convenio",
+                            "red",
                         ),
+                        spacing="2",
                     ),
-                    spacing="2",
-                    align="stretch",
                 ),
-                width="100%",
-                align="center",
+                spacing="2",
+                justify="end",
             ),
-            rx.cond(
-                AuthState.possui_convenio_selecionado,
-                rx.cond(
-                    AuthState.convenio_selecionado["id"] == convenio["id"],
-                    detalhe_convenio(),
-                    rx.fragment(),
-                ),
-                rx.fragment(),
-            ),
-            spacing="3",
-            width="100%",
+            justify="end",
         ),
-        background_color="white",
-        border="1px solid #dce6ef",
-        border_radius="10px",
-        padding="1em",
-        width="100%",
     )
 
 
 def detalhe_convenio() -> rx.Component:
     return rx.cond(
         AuthState.possui_convenio_selecionado,
-        rx.box(
-            rx.vstack(
-            rx.heading("Detalhes do convênio", size="5", color="#000000"),
-            rx.text("Nome: ", AuthState.convenio_selecionado["nome"], color="#000000"),
-            rx.text(
-                "Tipo: ",
-                AuthState.convenio_selecionado["tipo"],
-                color="#000000",
-                style={"textTransform": "capitalize"},
+        secao(
+            "Detalhes do convênio",
+            "file_text",
+            grade_detalhes(
+                item_detalhe("Nome", AuthState.convenio_selecionado["nome"]),
+                item_detalhe("Tipo", AuthState.convenio_selecionado["tipo"]),
+                item_detalhe("Cobertura", AuthState.convenio_selecionado["cobertura"]),
             ),
-                rx.text(
-                    "Cobertura: ",
-                    AuthState.convenio_selecionado["cobertura"],
-                    color="#000000",
-                ),
-                align="start",
-            ),
-            background_color="#f4f8fb",
-            border="1px solid #c8dbe9",
-            border_left="4px solid #2d78b7",
-            border_radius="8px",
-            padding="1.25em",
-            width="100%",
         ),
         rx.fragment(),
     )
 
 
 def convenios() -> rx.Component:
-    return rx.center(
-        rx.vstack(
-            rx.hstack(
-                rx.heading("Convênios", size="7", color="#000000"),
-                rx.spacer(),
-                rx.button("Voltar", on_click=rx.redirect("/dashboard"), variant="outline"),
-                width="100%",
-            ),
+    return pagina(
+        "Convênios",
+        "Planos e coberturas aceitas",
+        "shield_check",
+        "/convenios",
+        (acoes_tela("convenios", AuthState.carregar_convenios, "convenio"),),
+        rx.flex(
             rx.cond(
                 AuthState.pode_cadastrar_convenios,
-                formulario_convenio(),
-                rx.fragment(),
+                rx.box(
+                    formulario_convenio(),
+                    flex="1 1 300px",
+                    max_width="340px",
+                    min_width="0",
+                ),
             ),
-            rx.cond(
-                AuthState.erro_convenio != "",
-                rx.text(AuthState.erro_convenio, color="red"),
+            rx.vstack(
+                secao_lista(
+                    "Convênios cadastrados",
+                    "shield_check",
+                    AuthState.convenios_filtrados,
+                    ["Nome", "Tipo", "Cobertura", ""],
+                    linha_convenio,
+                    "Nenhum convênio encontrado.",
+                    "Os convênios cadastrados aparecerão aqui. Use Atualizar para consultar novamente.",
+                    "Buscar por nome ou tipo",
+                ),
+                detalhe_convenio(),
+                spacing="4",
+                align="stretch",
+                flex="2 1 460px",
+                min_width="0",
             ),
-            rx.cond(
-                AuthState.sucesso_convenio != "",
-                rx.text(AuthState.sucesso_convenio, color="green"),
-            ),
-            rx.cond(
-                AuthState.possui_convenios,
-                rx.foreach(AuthState.convenios, linha_convenio),
-                rx.text("Nenhum convênio encontrado."),
-            ),
+            wrap="wrap",
             spacing="4",
-            width="min(100%, 64em)",
-            padding="2em",
+            align="start",
+            width="100%",
         ),
-        background="#f4f8fb",
-        min_height="100vh",
-        width="100%",
     )

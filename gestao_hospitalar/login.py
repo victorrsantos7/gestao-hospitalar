@@ -3,124 +3,120 @@
 import reflex as rx
 
 from gestao_hospitalar.auth_state import AuthState
+from gestao_hospitalar.ui.componentes import botao_acao, campo, mensagem_erro
+from gestao_hospitalar.ui.icones import icone, marca, painel_login
+
+
+def _destaque(nome_icone: str, texto: str) -> rx.Component:
+    return rx.hstack(
+        rx.center(
+            icone(nome_icone, 16),
+            width="32px",
+            height="32px",
+            border_radius="10px",
+            background="rgba(255, 255, 255, 0.14)",
+            flex_shrink="0",
+        ),
+        rx.text(texto, size="2", color="#d6eaf0"),
+        spacing="3",
+        align="center",
+    )
+
+
+def _painel() -> rx.Component:
+    return rx.box(
+        painel_login(),
+        rx.vstack(
+            marca(52),
+            rx.heading("Gestão Hospitalar", size="8", color="white", weight="bold"),
+            rx.text(
+                "Mais controle, melhores decisões, uma saúde mais eficiente.",
+                size="4",
+                color="#d6eaf0",
+                max_width="26em",
+            ),
+            rx.vstack(
+                _destaque("users", "Pacientes, médicos e convênios em um só lugar"),
+                _destaque("bed_double", "Leitos, internações e transferências em tempo real"),
+                _destaque("history", "Histórico consolidado de cada paciente"),
+                spacing="3",
+                align="start",
+                margin_top="12px",
+            ),
+            spacing="3",
+            align="start",
+            class_name="gh-login-painel-texto",
+        ),
+        class_name="gh-login-painel",
+    )
+
+
+def _formulario() -> rx.Component:
+    return rx.vstack(
+        rx.hstack(
+            marca(34),
+            rx.text("Gestão Hospitalar", weight="bold", size="3"),
+            spacing="3",
+            align="center",
+            margin_bottom="8px",
+        ),
+        rx.vstack(
+            rx.heading("Bem-vindo(a)!", size="6", class_name="gh-titulo-pagina"),
+            rx.text("Entre com seu login e senha", size="2", color="var(--gh-muted)"),
+            spacing="1",
+            align="start",
+        ),
+        campo(
+            "Login",
+            rx.input(
+                rx.input.slot(icone("user_round", 16)),
+                placeholder="Seu login",
+                value=AuthState.login,
+                on_change=AuthState.set_login,
+                on_key_down=AuthState.login_tecla,
+                size="3",
+                width="100%",
+            ),
+        ),
+        campo(
+            "Senha",
+            rx.input(
+                rx.input.slot(icone("lock", 16)),
+                placeholder="Sua senha",
+                type="password",
+                value=AuthState.senha,
+                on_change=AuthState.set_senha,
+                on_key_down=AuthState.login_tecla,
+                size="3",
+                width="100%",
+            ),
+        ),
+        mensagem_erro(AuthState.erro),
+        botao_acao(
+            "Entrar",
+            AuthState.do_login,
+            "login",
+            "login",
+            "log_in",
+            size="3",
+            width="100%",
+        ),
+        rx.text(
+            "O acesso é restrito a profissionais autorizados.",
+            size="1",
+            color="var(--gh-muted)",
+        ),
+        spacing="3",
+        align="stretch",
+        width="100%",
+        max_width="380px",
+    )
 
 
 def login() -> rx.Component:
     """Página de login — ponto de entrada da aplicação."""
     return rx.box(
-        rx.hstack(
-            rx.box(
-                rx.image(
-                    src="https://images.unsplash.com/photo-1586773860418-d37222d8fce3?auto=format&fit=crop&w=1200&q=80",
-                    alt="",
-                    width="100%",
-                    object_fit="cover",
-                    height="100%",
-                ),
-                rx.box(
-                    rx.vstack(
-                        rx.box(
-                            rx.box(
-                                position="absolute",
-                                background_color="white",
-                                border_radius="0.25em",
-                                height="2.2em",
-                                left="0.8em",
-                                top="0",
-                                width="0.6em",
-                            ),
-                            rx.box(
-                                position="absolute",
-                                background_color="white",
-                                border_radius="0.25em",
-                                height="0.6em",
-                                left="0",
-                                top="0.8em",
-                                width="2.2em",
-                            ),
-                            height="2.2em",
-                            position="relative",
-                            width="2.2em",
-                        ),
-                        rx.heading("Gestão Hospitalar", size="6", color="white"),
-                        rx.text(
-                            "Mais controle, melhores decisões, uma saúde mais eficiente.",
-                            color="#d9e8f4",
-                            max_width="19em",
-                        ),
-                        align="start",
-                        position="absolute",
-                        bottom="7em",
-                        left="3em",
-                        spacing="2",
-                    ),
-                    background="linear-gradient(180deg, rgba(8, 38, 69, 0.08), rgba(8, 38, 69, 0.88))",
-                    position="absolute",
-                    inset="0",
-                ),
-                background_color="#12395f",
-                border_radius="0",
-                overflow="hidden",
-                position="relative",
-                width="50%",
-            ),
-            rx.box(
-                rx.vstack(
-                    rx.heading("Bem-vindo(a)!", size="7", color="#173b61"),
-                    rx.text("Entre com seu login e senha", color="#111827"),
-                    rx.input(
-                        placeholder="Login",
-                        value=AuthState.login,
-                        on_change=AuthState.set_login,
-                        background_color="white",
-                        border="1px solid #c8d4df",
-                        color="#111827",
-                        font_weight="500",
-                        style={"color": "#111827", "::placeholder": {"color": "#53677b", "opacity": "1"}},
-                        width="100%",
-                    ),
-                    rx.input(
-                        placeholder="Senha",
-                        type="password",
-                        value=AuthState.senha,
-                        on_change=AuthState.set_senha,
-                        background_color="white",
-                        border="1px solid #c8d4df",
-                        color="#111827",
-                        font_weight="500",
-                        style={"color": "#111827", "::placeholder": {"color": "#53677b", "opacity": "1"}},
-                        width="100%",
-                    ),
-                    rx.cond(
-                        AuthState.erro != "",
-                        rx.text(AuthState.erro, color="red"),
-                    ),
-                    rx.button("Entrar", on_click=AuthState.do_login, width="100%"),
-                    spacing="4",
-                    width="100%",
-                    align="center",
-                    justify="center",
-                ),
-                background_color="#ffffff",
-                border_radius="0",
-                padding="clamp(2em, 5vw, 4em)",
-                width="50%",
-            ),
-            align="stretch",
-            border="1px solid #d7e1ea",
-            border_radius="8px",
-            flex_wrap="nowrap",
-            height="36em",
-            justify="center",
-            max_width="64em",
-            overflow="hidden",
-            width="100%",
-        ),
-        background="#f4f7fa",
-        display="flex",
-        align_items="flex-start",
-        justify_content="center",
-        min_height="100vh",
-        padding="2em 1em",
-        width="100%",
+        _painel(),
+        rx.box(_formulario(), class_name="gh-login-form"),
+        class_name="gh-login",
     )

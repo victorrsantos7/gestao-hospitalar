@@ -3,202 +3,205 @@
 import reflex as rx
 
 from gestao_hospitalar.auth_state import AuthState
-from gestao_hospitalar.estilos import BOTAO_COMPACTO as _BOTAO_COMPACTO
+from gestao_hospitalar.ui.componentes import (
+    paginacao,
+    acoes_tela,
+    botao_acao,
+    botao_icone,
+    confirmar,
+    entrada,
+    grade_detalhes,
+    item_detalhe,
+    mensagem_erro,
+    secao,
+    secao_lista,
+)
+from gestao_hospitalar.ui.icones import icone
+from gestao_hospitalar.ui.layout import pagina
 
 
 def formulario_medico() -> rx.Component:
-    return rx.card(
-        rx.vstack(
-            rx.heading(
-                rx.cond(AuthState.editando_medico, "Editar médico", "Cadastrar médico"),
-                size="5",
-                color="#000000",
-            ),
-            rx.input(
-                placeholder="Nome completo",
-                value=AuthState.nome_medico,
-                on_change=AuthState.set_nome_medico,
-                max_length=120,
-                width="100%",
-            ),
-            rx.input(
-                placeholder="CRM: 0000000/UF",
-                value=AuthState.crm_medico,
-                on_change=AuthState.set_crm_medico,
-                max_length=12,
-                width="100%",
-            ),
-            rx.input(
-                placeholder="Especialidade",
-                value=AuthState.especialidade_medico,
-                on_change=AuthState.set_especialidade_medico,
-                max_length=80,
-                width="100%",
-            ),
-            rx.input(
-                placeholder="Telefone: (00) 00000-0000",
-                type="tel",
-                value=AuthState.telefone_medico,
-                on_change=AuthState.set_telefone_medico,
-                max_length=15,
-                width="100%",
-            ),
-            rx.cond(
-                AuthState.erro_medico != "",
-                rx.text(AuthState.erro_medico, color="red"),
-            ),
-            rx.cond(
-                AuthState.sucesso_medico != "",
-                rx.text(AuthState.sucesso_medico, color="green"),
-            ),
-            rx.center(
-                rx.hstack(
-                    rx.button(
-                        rx.cond(AuthState.editando_medico, "Atualizar", "Cadastrar"),
-                        on_click=AuthState.salvar_medico,
-                        style=_BOTAO_COMPACTO,
-                    ),
-                    rx.cond(
-                        AuthState.editando_medico,
-                        rx.button(
-                            "Cancelar",
-                            on_click=AuthState.cancelar_edicao_medico,
-                            style=_BOTAO_COMPACTO,
-                            variant="soft",
-                        ),
-                    ),
-                ),
-                width="100%",
-            ),
-            spacing="3",
+    return secao(
+        "Cadastrar ou editar médico",
+        "stethoscope",
+        entrada(
+            "Nome completo",
+            AuthState.nome_medico,
+            AuthState.set_nome_medico,
+            "Ex.: Dr. João Pereira",
+            obrigatorio=True,
+            max_length=120,
+        ),
+        entrada(
+            "CRM",
+            AuthState.crm_medico,
+            AuthState.set_crm_medico,
+            "0000000/UF",
+            obrigatorio=True,
+            max_length=12,
+        ),
+        entrada(
+            "Especialidade",
+            AuthState.especialidade_medico,
+            AuthState.set_especialidade_medico,
+            "Ex.: Cardiologia",
+            obrigatorio=True,
+            max_length=80,
+        ),
+        entrada(
+            "Telefone",
+            AuthState.telefone_medico,
+            AuthState.set_telefone_medico,
+            "(00) 00000-0000",
+            obrigatorio=True,
+            type="tel",
+            max_length=15,
+        ),
+        mensagem_erro(AuthState.erro_medico),
+        botao_acao(
+            rx.cond(AuthState.editando_medico, "Atualizar médico", "Cadastrar médico"),
+            AuthState.salvar_medico,
+            "salvar_medico",
+            "medico",
+            "save",
             width="100%",
         ),
-        background_color="white",
-        border="1px solid #dce6ef",
-        border_radius="10px",
-        box_shadow="0 8px 24px rgba(18, 57, 95, 0.06)",
-        width="100%",
+        rx.cond(
+            AuthState.editando_medico,
+            rx.button(
+                "Cancelar edição",
+                on_click=AuthState.cancelar_edicao_medico,
+                variant="soft",
+                color_scheme="gray",
+                width="100%",
+                cursor="pointer",
+            ),
+        ),
+        descricao="Todos os campos são obrigatórios.",
     )
 
 
 def linha_medico(medico: dict[str, str]) -> rx.Component:
-    return rx.card(
-        rx.vstack(
+    return rx.table.row(
+        rx.table.row_header_cell(rx.text(medico["nome"], weight="bold")),
+        rx.table.cell(medico["crm"]),
+        rx.table.cell(medico["especialidade"]),
+        rx.table.cell(
             rx.hstack(
-                rx.vstack(
-                    rx.text(medico["nome"], color="#000000", weight="bold"),
-                    rx.text("CRM: ", medico["crm"], color="#000000"),
-                    rx.text("Especialidade: ", medico["especialidade"], color="#000000"),
-                    align="start",
-                    flex="1",
+                botao_icone(
+                    "eye",
+                    "Ver detalhes",
+                    AuthState.consultar_medico(medico["id"]),
+                    "ver_medico_" + medico["id"],
+                    "medico",
+                    "teal",
                 ),
-                rx.vstack(
-                    rx.button(
-                        "Ver detalhes",
-                        on_click=AuthState.consultar_medico(medico["id"]),
-                        style=_BOTAO_COMPACTO,
-                    ),
-                    rx.cond(
-                        AuthState.pode_cadastrar_medicos,
-                        rx.hstack(
+                rx.cond(
+                    AuthState.pode_cadastrar_medicos,
+                    rx.hstack(
+                        rx.tooltip(
                             rx.icon_button(
-                                rx.icon("pencil", size=16),
+                                icone("pencil", 16),
                                 on_click=AuthState.editar_medico(medico["id"]),
                                 variant="soft",
+                                color_scheme="gray",
                                 size="2",
-                                radius="full",
-                                title="Editar",
+                                cursor="pointer",
+                                aria_label="Editar",
                             ),
+                            content="Editar",
+                        ),
+                        confirmar(
                             rx.icon_button(
-                                rx.icon("trash-2", size=16),
-                                on_click=AuthState.excluir_medico(medico["id"]),
+                                icone("trash_2", 16),
                                 variant="soft",
                                 color_scheme="red",
                                 size="2",
-                                radius="full",
-                                title="Excluir",
+                                cursor="pointer",
+                                aria_label="Excluir",
                             ),
-                            spacing="2",
-                            justify="center",
+                            "Excluir médico?",
+                            "O médico será removido se não possuir atendimentos vinculados.",
+                            "Excluir",
+                            AuthState.excluir_medico(medico["id"]),
+                            "excluir_medico_" + medico["id"],
+                            "medico",
+                            "red",
                         ),
+                        spacing="2",
                     ),
-                    spacing="2",
-                    align="stretch",
                 ),
-                width="100%",
-                align="center",
+                spacing="2",
+                justify="end",
             ),
-            rx.cond(
-                AuthState.possui_medico_selecionado,
-                rx.cond(
-                    AuthState.medico_selecionado["id"] == medico["id"],
-                    detalhe_medico(),
-                    rx.fragment(),
-                ),
-                rx.fragment(),
-            ),
-            spacing="3",
-            width="100%",
+            justify="end",
         ),
-        background_color="white",
-        border="1px solid #dce6ef",
-        border_radius="10px",
-        padding="1em",
-        width="100%",
     )
 
 
 def detalhe_medico() -> rx.Component:
     return rx.cond(
         AuthState.possui_medico_selecionado,
-        rx.box(
-            rx.vstack(
-            rx.heading("Detalhes do médico", size="5", color="#000000"),
-            rx.text("Nome: ", AuthState.medico_selecionado["nome"], color="#000000"),
-            rx.text("CRM: ", AuthState.medico_selecionado["crm"], color="#000000"),
-                rx.text(
-                    "Especialidade: ",
-                    AuthState.medico_selecionado["especialidade"],
-                    color="#000000",
-                ),
-                rx.text("Telefone: ", AuthState.medico_selecionado["telefone"], color="#000000"),
-                align="start",
+        secao(
+            "Detalhes do médico",
+            "id_card",
+            grade_detalhes(
+                item_detalhe("Nome", AuthState.medico_selecionado["nome"]),
+                item_detalhe("CRM", AuthState.medico_selecionado["crm"]),
+                item_detalhe("Especialidade", AuthState.medico_selecionado["especialidade"]),
+                item_detalhe("Telefone", AuthState.medico_selecionado["telefone"]),
             ),
-            background_color="#f4f8fb",
-            border="1px solid #c8dbe9",
-            border_left="4px solid #2d78b7",
-            border_radius="8px",
-            padding="1.25em",
-            width="100%",
         ),
         rx.fragment(),
     )
 
 
 def medicos() -> rx.Component:
-    return rx.center(
-        rx.vstack(
-            rx.hstack(
-                rx.heading("Médicos", size="7", color="#000000"),
-                rx.spacer(),
-                rx.button("Voltar", on_click=rx.redirect("/dashboard"), variant="outline"),
-                width="100%",
-            ),
+    return pagina(
+        "Médicos",
+        "Corpo clínico, CRM e especialidades",
+        "stethoscope",
+        "/medicos",
+        (acoes_tela("medicos", AuthState.carregar_medicos, "medico"),),
+        rx.flex(
             rx.cond(
                 AuthState.pode_cadastrar_medicos,
-                formulario_medico(),
-                rx.fragment(),
+                rx.box(
+                    formulario_medico(),
+                    flex="1 1 300px",
+                    max_width="340px",
+                    min_width="0",
+                ),
             ),
-            rx.cond(
-                AuthState.possui_medicos,
-                rx.foreach(AuthState.medicos, linha_medico),
-                rx.text("Nenhum médico encontrado."),
+            rx.vstack(
+                secao_lista(
+                    "Médicos cadastrados",
+                    "stethoscope",
+                    AuthState.medicos_filtrados,
+                    ["Nome", "CRM", "Especialidade", ""],
+                    linha_medico,
+                    "Nenhum médico encontrado.",
+                    "Os médicos cadastrados aparecerão aqui. Use Atualizar para consultar novamente.",
+                    "Buscar nesta página por nome, CRM ou especialidade",
+                    "A busca considera apenas os registros desta página.",
+                    paginacao(
+                        "medicos",
+                        "medico",
+                        AuthState.pagina_medicos,
+                        AuthState.total_paginas_medicos,
+                        AuthState.texto_paginacao_medicos,
+                    ),
+                    AuthState.total_registros_medicos,
+                ),
+                detalhe_medico(),
+                spacing="4",
+                align="stretch",
+                flex="2 1 460px",
+                min_width="0",
             ),
+            wrap="wrap",
             spacing="4",
-            width="min(100%, 64em)",
-            padding="2em",
+            align="start",
+            width="100%",
         ),
-        background="#f4f8fb",
-        min_height="100vh",
-        width="100%",
     )

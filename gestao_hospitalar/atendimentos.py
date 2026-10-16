@@ -3,310 +3,162 @@
 import reflex as rx
 
 from gestao_hospitalar.auth_state import AuthState
-from gestao_hospitalar.estilos import BOTAO_COMPACTO as _BOTAO_COMPACTO
-from gestao_hospitalar.validacao_atendimentos import ROTULOS_TIPO_ATENDIMENTO
-
-
-def _select_atendimento(
-    opcoes,
-    valor,
-    on_change,
-    placeholder: str,
-) -> rx.Component:
-    return rx.select.root(
-        rx.select.trigger(
-            placeholder=placeholder,
-            width="100%",
-            style={
-                "backgroundColor": "white",
-                "color": "#000000",
-                "border": "1px solid #d7dee6",
-                "&[data-placeholder] .rt-SelectTriggerInner": {
-                    "color": "#243b53 !important",
-                },
-            },
-        ),
-        rx.select.content(
-            rx.foreach(
-                opcoes,
-                lambda opcao: rx.select.item(opcao, value=opcao),
-            ),
-        ),
-        value=valor,
-        on_change=on_change,
-    )
-
-
-def _select_tipo_atendimento() -> rx.Component:
-    return rx.select.root(
-        rx.select.trigger(
-            placeholder="Tipo de atendimento",
-            width="100%",
-            style={
-                "backgroundColor": "white",
-                "color": "#000000",
-                "border": "1px solid #d7dee6",
-                "&[data-placeholder] .rt-SelectTriggerInner": {
-                    "color": "#243b53 !important",
-                },
-            },
-        ),
-        rx.select.content(
-            *(
-                rx.select.item(rotulo, value=valor)
-                for valor, rotulo in ROTULOS_TIPO_ATENDIMENTO.items()
-            ),
-        ),
-        value=AuthState.tipo_atendimento,
-        on_change=AuthState.set_tipo_atendimento,
-    )
-
-
-def _rotulo_tipo_atendimento(tipo) -> rx.Component:
-    return rx.match(
-        tipo,
-        *((valor, rotulo) for valor, rotulo in ROTULOS_TIPO_ATENDIMENTO.items()),
-        tipo,
-    )
+from gestao_hospitalar.ui.componentes import (
+    acoes_tela,
+    area_texto,
+    badge_status,
+    botao_acao,
+    botao_icone,
+    data_br,
+    entrada,
+    estado_vazio,
+    grade_detalhes,
+    item_detalhe,
+    mensagem_erro,
+    secao,
+    secao_lista,
+    selecao,
+)
+from gestao_hospitalar.ui.layout import pagina
 
 
 def formulario_atendimento() -> rx.Component:
-    return rx.card(
-        rx.vstack(
-            rx.heading(
-                rx.cond(
-                    AuthState.editando_atendimento,
-                    "Editar atendimento",
-                    "Cadastrar atendimento",
-                ),
-                size="5",
-                color="#000000",
-            ),
-            _select_atendimento(
-                AuthState.opcoes_pacientes_atendimento,
-                AuthState.paciente_id_atendimento,
-                AuthState.set_paciente_id_atendimento,
-                "Paciente",
-            ),
-            _select_atendimento(
-                AuthState.opcoes_medicos_atendimento,
-                AuthState.medico_id_atendimento,
-                AuthState.set_medico_id_atendimento,
-                "Médico",
-            ),
-            _select_atendimento(
-                AuthState.opcoes_convenios_atendimento,
-                AuthState.convenio_id_atendimento,
-                AuthState.set_convenio_id_atendimento,
-                "Convênio (opcional)",
-            ),
-            rx.input(
-                placeholder="Data do atendimento: dd/mm/aaaa",
-                type="text",
-                inputmode="numeric",
-                value=AuthState.data_atendimento,
-                on_change=AuthState.set_data_atendimento,
-                max_length=10,
-                width="100%",
-                color="#000000",
-            ),
-            rx.text_area(
-                placeholder="Motivo do atendimento",
-                value=AuthState.motivo_atendimento,
-                on_change=AuthState.set_motivo_atendimento,
-                max_length=500,
-                width="100%",
-                style={
-                    "backgroundColor": "white",
-                    "color": "#000000",
-                    "border": "1px solid #d7dee6",
-                },
-            ),
-            _select_tipo_atendimento(),
-            rx.cond(
-                AuthState.sucesso_atendimento != "",
-                rx.text(AuthState.sucesso_atendimento, color="green"),
-            ),
-            rx.center(
-                rx.hstack(
-                    rx.button(
-                        rx.cond(
-                            AuthState.editando_atendimento,
-                            "Atualizar",
-                            "Cadastrar",
-                        ),
-                        on_click=AuthState.salvar_atendimento,
-                        style=_BOTAO_COMPACTO,
-                    ),
-                    rx.cond(
-                        AuthState.editando_atendimento,
-                        rx.button(
-                            "Cancelar",
-                            on_click=AuthState.cancelar_edicao_atendimento,
-                            style=_BOTAO_COMPACTO,
-                            variant="soft",
-                        ),
-                    ),
-                ),
-                width="100%",
-            ),
-            spacing="3",
+    return secao(
+        "Cadastrar atendimento",
+        "clipboard_plus",
+        selecao(
+            "Paciente",
+            AuthState.opcoes_pacientes_atendimento,
+            AuthState.paciente_id_atendimento,
+            AuthState.set_paciente_id_atendimento,
+            "Selecione o paciente",
+            obrigatorio=True,
+        ),
+        selecao(
+            "Médico",
+            AuthState.opcoes_medicos_atendimento,
+            AuthState.medico_id_atendimento,
+            AuthState.set_medico_id_atendimento,
+            "Selecione o médico",
+            obrigatorio=True,
+        ),
+        selecao(
+            "Convênio",
+            AuthState.opcoes_convenios_atendimento,
+            AuthState.convenio_id_atendimento,
+            AuthState.set_convenio_id_atendimento,
+            "Convênio (opcional)",
+        ),
+        entrada(
+            "Data do atendimento",
+            AuthState.data_atendimento,
+            AuthState.set_data_atendimento,
+            obrigatorio=True,
+            type="date",
+        ),
+        selecao(
+            "Tipo de atendimento",
+            AuthState.tipos_atendimento,
+            AuthState.tipo_atendimento,
+            AuthState.set_tipo_atendimento,
+            "Selecione o tipo",
+            obrigatorio=True,
+        ),
+        area_texto(
+            "Motivo do atendimento",
+            AuthState.motivo_atendimento,
+            AuthState.set_motivo_atendimento,
+            "Descreva o motivo",
+            obrigatorio=True,
+            max_length=500,
+        ),
+        mensagem_erro(AuthState.erro_atendimento),
+        botao_acao(
+            "Cadastrar atendimento",
+            AuthState.criar_atendimento,
+            "criar_atendimento",
+            "atendimento",
+            "plus",
             width="100%",
         ),
-        background_color="white",
-        border="1px solid #dce6ef",
-        border_radius="10px",
-        box_shadow="0 8px 24px rgba(18, 57, 95, 0.06)",
-        padding="1.25em",
-        width="100%",
     )
 
 
 def linha_atendimento(atendimento: dict[str, str]) -> rx.Component:
-    return rx.card(
-        rx.vstack(
-            rx.hstack(
-                rx.vstack(
-                    rx.text(
-                        "Atendimento #",
-                        atendimento["id"],
-                        color="#000000",
-                        weight="bold",
-                    ),
-                    rx.text("Paciente: ", atendimento["paciente_nome"], color="#000000"),
-                    rx.text("Médico: ", atendimento["medico_nome"], color="#000000"),
-                    rx.text("Convênio: ", atendimento["convenio_nome"], color="#000000"),
-                    rx.text("Data: ", atendimento["data_atendimento"], color="#000000"),
-                    rx.text(
-                        "Tipo: ",
-                        _rotulo_tipo_atendimento(atendimento["tipo"]),
-                        color="#000000",
-                    ),
-                    align="start",
-                    flex="1",
-                ),
-                rx.vstack(
-                    rx.button(
-                        "Ver detalhes",
-                        on_click=AuthState.consultar_atendimento(atendimento["id"]),
-                        style=_BOTAO_COMPACTO,
-                    ),
-                    rx.cond(
-                        AuthState.pode_cadastrar_atendimentos,
-                        rx.hstack(
-                            rx.icon_button(
-                                rx.icon("pencil", size=16),
-                                on_click=AuthState.editar_atendimento(atendimento["id"]),
-                                variant="soft",
-                                size="2",
-                                radius="full",
-                                title="Editar",
-                            ),
-                            rx.icon_button(
-                                rx.icon("trash-2", size=16),
-                                on_click=AuthState.excluir_atendimento(atendimento["id"]),
-                                variant="soft",
-                                color_scheme="red",
-                                size="2",
-                                radius="full",
-                                title="Excluir",
-                            ),
-                            spacing="2",
-                            justify="center",
-                        ),
-                    ),
-                    spacing="2",
-                    align="stretch",
-                ),
-                width="100%",
-                align="center",
+    return rx.table.row(
+        rx.table.row_header_cell(rx.text("#", atendimento["id"], weight="bold")),
+        rx.table.cell(atendimento["paciente_nome"]),
+        rx.table.cell(atendimento["medico_nome"]),
+        rx.table.cell(atendimento["convenio_nome"]),
+        rx.table.cell(data_br(atendimento["data_atendimento"])),
+        rx.table.cell(badge_status(atendimento["tipo"])),
+        rx.table.cell(
+            botao_icone(
+                "eye",
+                "Ver detalhes",
+                AuthState.consultar_atendimento(atendimento["id"]),
+                "ver_atendimento_" + atendimento["id"],
+                "atendimento",
+                "teal",
             ),
-            rx.cond(
-                AuthState.possui_atendimento_selecionado,
-                rx.cond(
-                    AuthState.atendimento_selecionado["id"] == atendimento["id"],
-                    detalhe_atendimento(),
-                    rx.fragment(),
-                ),
-                rx.fragment(),
-            ),
-            spacing="3",
-            width="100%",
+            justify="end",
         ),
-        background_color="white",
-        border="1px solid #dce6ef",
-        border_radius="10px",
-        padding="1em",
-        width="100%",
     )
 
 
 def formulario_diagnostico() -> rx.Component:
-    return rx.card(
-        rx.vstack(
-            rx.heading("Cadastrar diagnóstico", size="4", color="#000000"),
-            rx.input(
-                placeholder="Descrição",
-                value=AuthState.descricao_diagnostico,
-                on_change=AuthState.set_descricao_diagnostico,
-                width="100%",
-                color="#000000",
-            ),
-            rx.input(
-                placeholder="Código CID (opcional)",
-                value=AuthState.codigo_cid_diagnostico,
-                on_change=AuthState.set_codigo_cid_diagnostico,
-                width="100%",
-                color="#000000",
-            ),
-            rx.input(
-                placeholder="Data do diagnóstico: dd/mm/aaaa",
-                type="text",
-                inputmode="numeric",
-                value=AuthState.data_diagnostico,
-                on_change=AuthState.set_data_diagnostico,
-                max_length=10,
-                width="100%",
-                color="#000000",
-            ),
-            rx.cond(
-                AuthState.sucesso_diagnostico != "",
-                rx.text(AuthState.sucesso_diagnostico, color="green"),
-            ),
-            rx.center(
-                rx.button(
-                    "Cadastrar diagnóstico",
-                    on_click=AuthState.criar_diagnostico,
-                    style=_BOTAO_COMPACTO,
-                ),
-                width="100%",
-            ),
-            spacing="3",
+    return rx.vstack(
+        rx.heading("Novo diagnóstico", size="2"),
+        entrada(
+            "Descrição",
+            AuthState.descricao_diagnostico,
+            AuthState.set_descricao_diagnostico,
+            "Descreva o diagnóstico",
+            obrigatorio=True,
+        ),
+        entrada(
+            "Código CID",
+            AuthState.codigo_cid_diagnostico,
+            AuthState.set_codigo_cid_diagnostico,
+            "Ex.: J06.9 (opcional)",
+        ),
+        entrada(
+            "Data do diagnóstico",
+            AuthState.data_diagnostico,
+            AuthState.set_data_diagnostico,
+            obrigatorio=True,
+            type="date",
+        ),
+        botao_acao(
+            "Cadastrar diagnóstico",
+            AuthState.criar_diagnostico,
+            "criar_diagnostico",
+            "diagnostico",
+            "plus",
             width="100%",
         ),
-        background_color="white",
-        border="1px solid #dce6ef",
-        border_radius="10px",
-        box_shadow="0 8px 24px rgba(18, 57, 95, 0.06)",
-        padding="1.25em",
+        spacing="3",
         width="100%",
+        align="stretch",
     )
 
 
 def linha_diagnostico(diagnostico: dict[str, str]) -> rx.Component:
-    return rx.card(
-        rx.vstack(
-            rx.text("Diagnóstico #", diagnostico["id"], weight="bold", color="#000000"),
-            rx.text("Descrição: ", diagnostico["descricao"], color="#000000"),
-            rx.text("Código CID: ", diagnostico["codigo_cid"], color="#000000"),
-            rx.text("Data: ", diagnostico["data_diagnostico"], color="#000000"),
-            align="start",
+    return rx.box(
+        rx.hstack(
+            rx.text(diagnostico["descricao"], weight="bold", size="2"),
+            rx.spacer(),
+            rx.cond(
+                diagnostico["codigo_cid"] != "",
+                rx.badge(diagnostico["codigo_cid"], variant="soft", radius="full"),
+            ),
             width="100%",
+            align="center",
         ),
-        background_color="#f8fbfd",
-        border="1px solid #dce6ef",
-        border_radius="8px",
-        padding="1em",
+        rx.text(data_br(diagnostico["data_diagnostico"]), size="2", color="var(--gh-muted)"),
+        padding="12px 14px",
+        border="1px solid var(--gh-border)",
+        border_radius="10px",
         width="100%",
     )
 
@@ -315,19 +167,26 @@ def diagnosticos_atendimento() -> rx.Component:
     return rx.cond(
         AuthState.pode_ver_diagnosticos,
         rx.vstack(
-            rx.heading("Diagnósticos", size="4", color="#000000"),
-            rx.cond(
-                AuthState.erro_diagnostico != "",
-                rx.text(AuthState.erro_diagnostico, color="red"),
-            ),
+            rx.divider(),
+            rx.heading("Diagnósticos", size="4"),
+            mensagem_erro(AuthState.erro_diagnostico),
             rx.cond(
                 AuthState.possui_diagnosticos,
-                rx.foreach(AuthState.diagnosticos, linha_diagnostico),
-                rx.text("Nenhum diagnóstico encontrado.", color="#52677d"),
+                rx.vstack(
+                    rx.foreach(AuthState.diagnosticos, linha_diagnostico),
+                    spacing="2",
+                    width="100%",
+                ),
+                estado_vazio(
+                    "clipboard_list",
+                    "Nenhum diagnóstico encontrado.",
+                    "Cadastre o primeiro diagnóstico deste atendimento abaixo.",
+                ),
             ),
             formulario_diagnostico(),
-            align="start",
+            spacing="4",
             width="100%",
+            align="stretch",
         ),
         rx.fragment(),
     )
@@ -336,65 +195,65 @@ def diagnosticos_atendimento() -> rx.Component:
 def detalhe_atendimento() -> rx.Component:
     return rx.cond(
         AuthState.possui_atendimento_selecionado,
-        rx.box(
-            rx.vstack(
-            rx.heading("Detalhes do atendimento", size="5", color="#000000"),
-            rx.text("Paciente: ", AuthState.atendimento_selecionado["paciente_nome"], color="#000000"),
-            rx.text("Médico: ", AuthState.atendimento_selecionado["medico_nome"], color="#000000"),
-            rx.text("Convênio: ", AuthState.atendimento_selecionado["convenio_nome"], color="#000000"),
-                rx.text(
-                    "Data: ",
-                    AuthState.atendimento_selecionado["data_atendimento"],
-                    color="#000000",
-                ),
-                rx.text(
-                    "Tipo: ",
-                    _rotulo_tipo_atendimento(AuthState.atendimento_selecionado["tipo"]),
-                    color="#000000",
-                ),
-                rx.text("Motivo: ", AuthState.atendimento_selecionado["motivo"], color="#000000"),
-                diagnosticos_atendimento(),
-                align="start",
+        secao(
+            "Detalhes do atendimento",
+            "file_text",
+            grade_detalhes(
+                item_detalhe("Paciente", AuthState.atendimento_selecionado["paciente_nome"]),
+                item_detalhe("Médico", AuthState.atendimento_selecionado["medico_nome"]),
+                item_detalhe("Convênio", AuthState.atendimento_selecionado["convenio_nome"]),
+                item_detalhe("Data", data_br(AuthState.atendimento_selecionado["data_atendimento"])),
+                item_detalhe("Tipo", AuthState.atendimento_selecionado["tipo"]),
+                item_detalhe("Motivo", AuthState.atendimento_selecionado["motivo"]),
             ),
-            background_color="#f4f8fb",
-            border="1px solid #c8dbe9",
-            border_left="4px solid #2d78b7",
-            border_radius="8px",
-            padding="1.25em",
-            width="100%",
+            diagnosticos_atendimento(),
         ),
         rx.fragment(),
     )
 
 
 def atendimentos() -> rx.Component:
-    return rx.center(
-        rx.vstack(
-            rx.hstack(
-                rx.heading("Atendimentos", size="7", color="#000000"),
-                rx.spacer(),
-                rx.button("Voltar", on_click=rx.redirect("/dashboard"), variant="outline"),
-                width="100%",
-            ),
+    return pagina(
+        "Atendimentos",
+        "Consultas, retornos e diagnósticos",
+        "clipboard_list",
+        "/atendimentos",
+        (acoes_tela("atendimentos", AuthState.carregar_atendimentos, "atendimento"),),
+        rx.flex(
             rx.cond(
                 AuthState.pode_cadastrar_atendimentos,
-                formulario_atendimento(),
-                rx.fragment(),
+                rx.box(
+                    formulario_atendimento(),
+                    flex="1 1 300px",
+                    max_width="340px",
+                    min_width="0",
+                ),
             ),
-            rx.cond(
-                AuthState.erro_atendimento != "",
-                rx.text(AuthState.erro_atendimento, color="red"),
+            rx.vstack(
+                rx.cond(
+                    AuthState.pode_cadastrar_atendimentos,
+                    rx.fragment(),
+                    mensagem_erro(AuthState.erro_atendimento),
+                ),
+                secao_lista(
+                    "Atendimentos registrados",
+                    "clipboard_list",
+                    AuthState.atendimentos_filtrados,
+                    ["Nº", "Paciente", "Médico", "Convênio", "Data", "Tipo", ""],
+                    linha_atendimento,
+                    "Nenhum atendimento encontrado.",
+                    "Os atendimentos registrados aparecerão aqui. Use Atualizar para consultar novamente.",
+                    "Buscar por paciente, médico ou data",
+                ),
+                detalhe_atendimento(),
+                spacing="4",
+                align="stretch",
+                flex="2 1 520px",
+                min_width="0",
             ),
-            rx.cond(
-                AuthState.possui_atendimentos,
-                rx.foreach(AuthState.atendimentos, linha_atendimento),
-                rx.text("Nenhum atendimento encontrado."),
-            ),
+            wrap="wrap",
             spacing="4",
-            width="min(100%, 64em)",
-            padding="2em",
+            align="start",
+            width="100%",
         ),
-        background="#f4f8fb",
-        min_height="100vh",
-        width="100%",
     )

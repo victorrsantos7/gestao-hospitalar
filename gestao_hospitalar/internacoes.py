@@ -3,241 +3,240 @@
 import reflex as rx
 
 from gestao_hospitalar.auth_state import AuthState
-from gestao_hospitalar.estilos import BOTAO_COMPACTO as _BOTAO_COMPACTO
+from gestao_hospitalar.ui.componentes import (
+    bloqueado,
+    acoes_tela,
+    area_texto,
+    badge_status,
+    botao_acao,
+    botao_icone,
+    confirmar,
+    data_br,
+    entrada,
+    estado_vazio,
+    mensagem_erro,
+    metrica,
+    secao,
+    secao_lista,
+    selecao,
+)
+from gestao_hospitalar.ui.icones import icone
+from gestao_hospitalar.ui.layout import pagina
 
 
 def formulario_leito() -> rx.Component:
-    return rx.card(
-        rx.vstack(
-            rx.heading("Cadastrar leito", size="4", color="#000000"),
-            rx.input(
-                placeholder="Número do leito",
-                value=AuthState.numero_leito,
-                on_change=AuthState.set_numero_leito,
-                width="100%",
-                color="#000000",
-            ),
-            rx.cond(
-                AuthState.erro_leito != "",
-                rx.text(AuthState.erro_leito, color="red"),
-            ),
-            rx.cond(
-                AuthState.sucesso_leito != "",
-                rx.text(AuthState.sucesso_leito, color="green"),
-            ),
-            rx.center(
-                rx.button(
-                    "Cadastrar leito",
-                    on_click=AuthState.criar_leito,
-                    style=_BOTAO_COMPACTO,
-                ),
-                width="100%",
-            ),
-            spacing="3",
+    return secao(
+        "Cadastrar leito",
+        "bed_double",
+        entrada(
+            "Número do leito",
+            AuthState.numero_leito,
+            AuthState.set_numero_leito,
+            "Ex.: 101",
+            obrigatorio=True,
+        ),
+        botao_acao(
+            "Cadastrar leito",
+            AuthState.criar_leito,
+            "criar_leito",
+            "leito",
+            "plus",
             width="100%",
         ),
-        background_color="white",
-        border="1px solid #dce6ef",
-        border_radius="10px",
-        box_shadow="0 8px 24px rgba(18, 57, 95, 0.06)",
-        padding="1.25em",
-        width="100%",
+        mensagem_erro(AuthState.erro_leito),
     )
 
 
-def linha_leito(leito: dict[str, str]) -> rx.Component:
-    return rx.card(
+def tile_leito(leito: dict[str, str]) -> rx.Component:
+    return rx.box(
         rx.hstack(
-            rx.text("Leito ", leito["numero"], weight="bold", color="#000000"),
+            icone("bed_double", 20, color="var(--gh-muted)"),
             rx.spacer(),
-            rx.badge(leito["status"]),
+            badge_status(leito["status"]),
             width="100%",
+            align="center",
         ),
-        background_color="white",
-        border="1px solid #dce6ef",
-        border_radius="10px",
-        padding="1em",
-        width="100%",
+        rx.text("Leito ", leito["numero"], weight="bold", size="4"),
+        class_name=rx.cond(
+            leito["status"] == "livre",
+            "gh-leito gh-leito--livre",
+            "gh-leito gh-leito--ocupado",
+        ),
+    )
+
+
+def painel_leitos() -> rx.Component:
+    return secao(
+        "Leitos",
+        "bed_double",
+        rx.cond(
+            AuthState.possui_leitos,
+            rx.grid(
+                rx.foreach(AuthState.leitos, tile_leito),
+                columns="repeat(auto-fill, minmax(160px, 1fr))",
+                spacing="3",
+                width="100%",
+            ),
+            estado_vazio(
+                "bed_double",
+                "Nenhum leito cadastrado.",
+                "Cadastre o primeiro leito para começar a controlar a ocupação.",
+            ),
+        ),
+        acao=rx.badge(
+            AuthState.leitos.length(),
+            variant="soft",
+            radius="full",
+            size="2",
+        ),
     )
 
 
 def formulario_internacao() -> rx.Component:
-    return rx.card(
-        rx.vstack(
-            rx.heading("Registrar internação", size="4", color="#000000"),
-            rx.select.root(
-                rx.select.trigger(
-                    placeholder="Atendimento elegível",
-                    width="100%",
-                    style={
-                        "backgroundColor": "white",
-                        "color": "#111827",
-                        "border": "1px solid #d7dee6",
-                        "&[data-placeholder] .rt-SelectTriggerInner": {
-                            "color": "#243b53 !important",
-                        },
-                    },
-                ),
-                rx.select.content(
-                    rx.foreach(
-                        AuthState.opcoes_atendimentos_internaveis,
-                        lambda opcao: rx.select.item(opcao, value=opcao),
-                    ),
-                ),
-                value=AuthState.atendimento_id_internacao,
-                on_change=AuthState.set_atendimento_id_internacao,
-            ),
-            rx.select.root(
-                rx.select.trigger(
-                    placeholder="Leito livre",
-                    width="100%",
-                    style={
-                        "backgroundColor": "white",
-                        "color": "#111827",
-                        "border": "1px solid #d7dee6",
-                        "&[data-placeholder] .rt-SelectTriggerInner": {
-                            "color": "#243b53 !important",
-                        },
-                    },
-                ),
-                rx.select.content(
-                    rx.foreach(
-                        AuthState.opcoes_leitos_livres,
-                        lambda opcao: rx.select.item(opcao, value=opcao),
-                    ),
-                ),
-                value=AuthState.leito_id_internacao,
-                on_change=AuthState.set_leito_id_internacao,
-            ),
-            rx.input(
-                placeholder="Data de entrada: dd/mm/aaaa",
-                type="text",
-                inputmode="numeric",
-                value=AuthState.data_entrada_internacao,
-                on_change=AuthState.set_data_entrada_internacao,
-                max_length=10,
-                width="100%",
-                color="#000000",
-            ),
-            rx.center(
-                rx.button(
-                    "Registrar internação",
-                    on_click=AuthState.criar_internacao,
-                    style=_BOTAO_COMPACTO,
-                ),
-                width="100%",
-            ),
-            spacing="3",
+    return secao(
+        "Registrar internação",
+        "user_check",
+        selecao(
+            "Atendimento elegível",
+            AuthState.opcoes_atendimentos_internaveis,
+            AuthState.atendimento_id_internacao,
+            AuthState.set_atendimento_id_internacao,
+            "Selecione o atendimento",
+            obrigatorio=True,
+        ),
+        selecao(
+            "Leito livre",
+            AuthState.opcoes_leitos_livres,
+            AuthState.leito_id_internacao,
+            AuthState.set_leito_id_internacao,
+            "Selecione o leito",
+            obrigatorio=True,
+        ),
+        entrada(
+            "Data de entrada",
+            AuthState.data_entrada_internacao,
+            AuthState.set_data_entrada_internacao,
+            obrigatorio=True,
+            type="date",
+        ),
+        botao_acao(
+            "Registrar internação",
+            AuthState.criar_internacao,
+            "criar_internacao",
+            "internacao",
+            "plus",
             width="100%",
         ),
-        background_color="white",
-        border="1px solid #dce6ef",
-        border_radius="10px",
-        box_shadow="0 8px 24px rgba(18, 57, 95, 0.06)",
-        padding="1.25em",
-        width="100%",
     )
 
 
 def linha_internacao(internacao: dict[str, str]) -> rx.Component:
-    return rx.card(
-        rx.vstack(
-            rx.text("Internação #", internacao["id"], weight="bold", color="#000000"),
-            rx.text("Atendimento: ", internacao["atendimento_id"], color="#000000"),
-            rx.text("Paciente: ", internacao["paciente_id"], color="#000000"),
-            rx.text("Leito: ", internacao["leito_numero"], color="#000000"),
-            rx.text("Entrada: ", internacao["data_entrada"], color="#000000"),
-            rx.text("Saída: ", internacao["data_saida"], color="#000000"),
-            rx.text("Status: ", internacao["status"], color="#000000"),
-            rx.cond(
-                internacao["status"] == "internado",
-                rx.button(
-                    "Registrar alta",
-                    on_click=AuthState.selecionar_internacao_alta(internacao["id"]),
-                    style=_BOTAO_COMPACTO,
+    return rx.table.row(
+        rx.table.row_header_cell(rx.text("#", internacao["id"], weight="bold")),
+        rx.table.cell(
+            rx.vstack(
+                rx.text("Paciente #", internacao["paciente_id"], weight="medium"),
+                rx.text(
+                    "Atendimento #",
+                    internacao["atendimento_id"],
+                    size="1",
+                    color="var(--gh-muted)",
                 ),
-                rx.fragment(),
-            ),
-            rx.cond(
-                AuthState.internacao_id_alta == internacao["id"],
-                formulario_alta(),
-                rx.fragment(),
-            ),
-            rx.cond(
-                AuthState.pode_ver_transferencias,
-                rx.button(
-                    "Ver transferências",
-                    on_click=AuthState.selecionar_internacao_transferencia(
-                        internacao["id"]
-                    ),
-                    style=_BOTAO_COMPACTO,
-                    variant="soft",
-                ),
-                rx.fragment(),
-            ),
-            rx.cond(
-                AuthState.internacao_id_transferencia == internacao["id"],
-                historico_transferencias(),
-                rx.fragment(),
-            ),
-            align="start",
-            width="100%",
+                spacing="0",
+                align="start",
+            )
         ),
-        background_color="white",
-        border="1px solid #dce6ef",
-        border_radius="10px",
-        padding="1em",
-        width="100%",
+        rx.table.cell(internacao["leito_numero"]),
+        rx.table.cell(data_br(internacao["data_entrada"])),
+        rx.table.cell(data_br(internacao["data_saida"])),
+        rx.table.cell(badge_status(internacao["status"])),
+        rx.table.cell(
+            rx.hstack(
+                rx.cond(
+                    internacao["status"] == "internado",
+                    rx.tooltip(
+                        rx.icon_button(
+                            icone("door_open", 16),
+                            on_click=AuthState.selecionar_internacao_alta(internacao["id"]),
+                            variant="soft",
+                            color_scheme="green",
+                            size="2",
+                            cursor="pointer",
+                            aria_label="Registrar alta",
+                        ),
+                        content="Registrar alta",
+                    ),
+                    rx.fragment(),
+                ),
+                rx.cond(
+                    AuthState.pode_ver_transferencias,
+                    botao_icone(
+                        "arrow_right_left",
+                        "Ver transferências",
+                        AuthState.selecionar_internacao_transferencia(internacao["id"]),
+                        "ver_transferencias_" + internacao["id"],
+                        "transferencia",
+                        "teal",
+                    ),
+                    rx.fragment(),
+                ),
+                spacing="2",
+                justify="end",
+            ),
+            justify="end",
+        ),
     )
 
 
 def formulario_alta() -> rx.Component:
     return rx.cond(
         AuthState.internacao_id_alta != "",
-        rx.card(
-            rx.vstack(
-                rx.heading("Registrar alta", size="4", color="#000000"),
-                rx.input(
-                    placeholder="Data de saída: dd/mm/aaaa",
-                    type="text",
-                    inputmode="numeric",
-                    value=AuthState.data_saida_internacao,
-                    on_change=AuthState.set_data_saida_internacao,
-                    max_length=10,
-                    width="100%",
-                    color="#000000",
-                ),
-                rx.cond(
-                    AuthState.erro_internacao != "",
-                    rx.text(AuthState.erro_internacao, color="red"),
-                ),
-                rx.center(
-                    rx.button(
-                        "Confirmar alta",
-                        on_click=AuthState.registrar_alta,
-                        style=_BOTAO_COMPACTO,
-                    ),
-                    width="100%",
-                ),
-                spacing="3",
-                width="100%",
+        secao(
+            "Registrar alta",
+            "door_open",
+            rx.text("Internação #", AuthState.internacao_id_alta, weight="bold"),
+            entrada(
+                "Data de saída",
+                AuthState.data_saida_internacao,
+                AuthState.set_data_saida_internacao,
+                obrigatorio=True,
+                type="date",
             ),
-            width="100%",
+            confirmar(
+                rx.button(
+                    icone("door_open", 16),
+                    "Registrar alta",
+                    size="2",
+                    width="100%",
+                    cursor="pointer",
+                    disabled=bloqueado(),
+                ),
+                "Confirmar alta?",
+                "A internação será encerrada e o leito liberado. Esta ação não pode ser desfeita.",
+                "Confirmar alta",
+                AuthState.registrar_alta,
+                "registrar_alta",
+                "internacao",
+                "green",
+            ),
         ),
         rx.fragment(),
     )
 
 
 def linha_transferencia(transferencia: dict[str, str]) -> rx.Component:
-    return rx.card(
-        rx.vstack(
-            rx.text("Transferência #", transferencia["id"], weight="bold", color="#000000"),
-            rx.text("Data: ", transferencia["data_transferencia"], color="#000000"),
-            rx.text("Destino: ", transferencia["destino"], color="#000000"),
-            rx.text("Motivo: ", transferencia["motivo"], color="#000000"),
-            align="start",
+    return rx.box(
+        rx.hstack(
+            rx.text("Transferência #", transferencia["id"], weight="bold"),
+            rx.spacer(),
+            rx.text(data_br(transferencia["data_transferencia"]), size="2", color="var(--gh-muted)"),
             width="100%",
         ),
+        rx.text("Destino: ", transferencia["destino"], size="2", weight="medium"),
+        rx.text(transferencia["motivo"], size="2", color="var(--gh-muted)"),
+        padding="12px 14px",
+        border="1px solid var(--gh-border)",
+        border_radius="10px",
         width="100%",
     )
 
@@ -245,127 +244,163 @@ def linha_transferencia(transferencia: dict[str, str]) -> rx.Component:
 def historico_transferencias() -> rx.Component:
     return rx.cond(
         AuthState.internacao_id_transferencia != "",
-        rx.card(
-            rx.vstack(
-                rx.heading("Transferências", size="4", color="#000000"),
-                rx.cond(
-                    AuthState.erro_transferencia != "",
-                    rx.text(AuthState.erro_transferencia, color="red"),
-                ),
-                rx.cond(
-                    AuthState.sucesso_transferencia != "",
-                    rx.text(AuthState.sucesso_transferencia, color="green"),
-                ),
-                rx.cond(
-                    AuthState.possui_transferencias,
+        secao(
+            "Transferências",
+            "arrow_right_left",
+            rx.text("Internação #", AuthState.internacao_id_transferencia, weight="bold"),
+            mensagem_erro(AuthState.erro_transferencia),
+            rx.cond(
+                AuthState.possui_transferencias,
+                rx.vstack(
                     rx.foreach(AuthState.transferencias, linha_transferencia),
-                    rx.text("Nenhuma transferência registrada.", color="#000000"),
+                    spacing="2",
+                    width="100%",
                 ),
-                rx.cond(
-                    AuthState.internacao_transferencia_ativa,
-                    rx.vstack(
-                        rx.input(
-                            placeholder="Data da transferência: dd/mm/aaaa",
-                            type="text",
-                            inputmode="numeric",
-                            value=AuthState.data_transferencia,
-                            on_change=AuthState.set_data_transferencia,
-                            max_length=10,
-                            width="100%",
-                            color="#000000",
-                        ),
-                        rx.input(
-                            placeholder="Setor de destino (ex.: UTI)",
-                            value=AuthState.destino_transferencia,
-                            on_change=AuthState.set_destino_transferencia,
-                            width="100%",
-                            color="#000000",
-                        ),
-                        rx.text_area(
-                            placeholder="Motivo da transferência",
-                            value=AuthState.motivo_transferencia,
-                            on_change=AuthState.set_motivo_transferencia,
-                            width="100%",
-                            style={
-                                "backgroundColor": "white",
-                                "color": "#000000",
-                                "border": "1px solid #d7dee6",
-                            },
-                        ),
-                        rx.center(
-                            rx.button(
-                                "Registrar transferência",
-                                on_click=AuthState.criar_transferencia,
-                                style=_BOTAO_COMPACTO,
-                            ),
-                            width="100%",
-                        ),
-                        spacing="3",
-                        width="100%",
-                    ),
-                    rx.text(
-                        "Internação encerrada; novas transferências bloqueadas.",
-                        color="#000000",
-                    ),
+                estado_vazio(
+                    "arrow_right_left",
+                    "Nenhuma transferência registrada.",
+                    "As transferências desta internação aparecerão aqui.",
                 ),
-                spacing="3",
-                width="100%",
             ),
-            background_color="white",
-            border="1px solid #c8dbe9",
-            border_left="4px solid #2d78b7",
-            border_radius="10px",
-            padding="1.25em",
-            width="100%",
+            rx.cond(
+                AuthState.internacao_transferencia_ativa,
+                rx.vstack(
+                    rx.divider(),
+                    rx.heading("Nova transferência", size="2"),
+                    entrada(
+                        "Data da transferência",
+                        AuthState.data_transferencia,
+                        AuthState.set_data_transferencia,
+                        obrigatorio=True,
+                        type="date",
+                    ),
+                    entrada(
+                        "Setor de destino",
+                        AuthState.destino_transferencia,
+                        AuthState.set_destino_transferencia,
+                        "Ex.: UTI",
+                        obrigatorio=True,
+                    ),
+                    area_texto(
+                        "Motivo da transferência",
+                        AuthState.motivo_transferencia,
+                        AuthState.set_motivo_transferencia,
+                        "Descreva o motivo",
+                        obrigatorio=True,
+                    ),
+                    confirmar(
+                        rx.button(
+                            icone("arrow_right_left", 16),
+                            "Registrar transferência",
+                            size="2",
+                            width="100%",
+                            cursor="pointer",
+                            disabled=bloqueado(),
+                        ),
+                        "Registrar transferência?",
+                        "O paciente será transferido para o setor informado.",
+                        "Confirmar transferência",
+                        AuthState.criar_transferencia,
+                        "criar_transferencia",
+                        "transferencia",
+                    ),
+                    spacing="3",
+                    width="100%",
+                    align="stretch",
+                ),
+                rx.callout.root(
+                    rx.callout.icon(icone("info", 16)),
+                    rx.callout.text("Internação encerrada; novas transferências bloqueadas."),
+                    color_scheme="gray",
+                    variant="soft",
+                    width="100%",
+                ),
+            ),
         ),
         rx.fragment(),
     )
 
 
-def internacoes() -> rx.Component:
-    return rx.center(
-        rx.vstack(
-            rx.hstack(
-                rx.heading("Internações e leitos", size="7", color="#000000"),
-                rx.spacer(),
-                rx.button("Voltar", on_click=rx.redirect("/dashboard"), variant="outline"),
-                width="100%",
-            ),
-            rx.cond(
-                AuthState.pode_cadastrar_leitos,
-                formulario_leito(),
-                rx.fragment(),
-            ),
-            rx.heading("Leitos", size="5", color="#000000"),
-            rx.cond(
-                AuthState.possui_leitos,
-                rx.foreach(AuthState.leitos, linha_leito),
-                rx.text("Nenhum leito cadastrado.", color="#000000"),
-            ),
-            rx.cond(
-                AuthState.pode_cadastrar_internacoes,
+def _aba_internacoes() -> rx.Component:
+    return rx.flex(
+        rx.cond(
+            AuthState.pode_cadastrar_internacoes,
+            rx.box(
                 formulario_internacao(),
-                rx.fragment(),
+                flex="1 1 300px",
+                max_width="340px",
+                min_width="0",
             ),
-            rx.heading("Internações", size="5", color="#000000"),
-            rx.cond(
-                AuthState.erro_internacao != "",
-                rx.text(AuthState.erro_internacao, color="red"),
-            ),
-            rx.cond(
-                AuthState.sucesso_internacao != "",
-                rx.text(AuthState.sucesso_internacao, color="green"),
-            ),
-            rx.cond(
-                AuthState.possui_internacoes,
-                rx.foreach(AuthState.internacoes, linha_internacao),
-                rx.text("Nenhuma internação encontrada.", color="#000000"),
-            ),
-            spacing="4",
-            width="min(100%, 64em)",
-            padding="2em",
         ),
-        background="#f4f8fb",
-        min_height="100vh",
+        rx.vstack(
+            secao_lista(
+                "Internações",
+                "bed_double",
+                AuthState.internacoes_filtradas,
+                ["Nº", "Paciente", "Leito", "Entrada", "Saída", "Status", ""],
+                linha_internacao,
+                "Nenhuma internação encontrada.",
+                "As internações registradas aparecerão aqui. Use Atualizar para consultar novamente.",
+                "Buscar por paciente, atendimento, leito ou status",
+            ),
+            formulario_alta(),
+            historico_transferencias(),
+            spacing="4",
+            align="stretch",
+            flex="2 1 520px",
+            min_width="0",
+        ),
+        wrap="wrap",
+        spacing="4",
+        align="start",
         width="100%",
+    )
+
+
+def _aba_leitos() -> rx.Component:
+    return rx.flex(
+        rx.cond(
+            AuthState.pode_cadastrar_leitos,
+            rx.box(
+                formulario_leito(),
+                flex="1 1 300px",
+                max_width="400px",
+                min_width="0",
+            ),
+        ),
+        rx.box(painel_leitos(), flex="2 1 460px", min_width="0"),
+        wrap="wrap",
+        spacing="4",
+        align="start",
+        width="100%",
+    )
+
+
+def internacoes() -> rx.Component:
+    return pagina(
+        "Internações e leitos",
+        "Ocupação, altas e transferências",
+        "bed_double",
+        "/internacoes",
+        (acoes_tela("internacoes", AuthState.carregar_internacoes, "internacao"),),
+        rx.grid(
+            metrica("Leitos livres", AuthState.total_leitos_livres, "bed_double", "green", "Disponíveis agora"),
+            metrica("Leitos ocupados", AuthState.total_leitos_ocupados, "bed_double", "amber", "Em uso"),
+            metrica("Internações ativas", AuthState.total_internacoes_ativas, "activity", "red", "Pacientes internados"),
+            columns="repeat(auto-fit, minmax(300px, 1fr))",
+            spacing="4",
+            width="100%",
+        ),
+        mensagem_erro(AuthState.erro_internacao),
+        rx.tabs.root(
+            rx.tabs.list(
+                rx.tabs.trigger("Internações", value="internacoes"),
+                rx.tabs.trigger("Leitos", value="leitos"),
+                size="2",
+            ),
+            rx.tabs.content(_aba_internacoes(), value="internacoes", padding_top="20px"),
+            rx.tabs.content(_aba_leitos(), value="leitos", padding_top="20px"),
+            default_value="internacoes",
+            width="100%",
+        ),
     )

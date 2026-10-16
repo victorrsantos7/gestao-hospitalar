@@ -3,7 +3,21 @@
 import reflex as rx
 
 from gestao_hospitalar.auth_state import AuthState
-from gestao_hospitalar.estilos import BOTAO_COMPACTO as _BOTAO_COMPACTO
+from gestao_hospitalar.ui.componentes import (
+    paginacao,
+    acoes_tela,
+    botao_acao,
+    botao_icone,
+    data_br,
+    entrada,
+    grade_detalhes,
+    item_detalhe,
+    mensagem_erro,
+    secao,
+    secao_lista,
+)
+from gestao_hospitalar.ui.icones import icone
+from gestao_hospitalar.ui.layout import pagina
 
 
 _FILTRAR_NOME = """(() => {
@@ -40,246 +54,172 @@ _FORMATAR_TELEFONE = """(() => {
 
 
 def formulario_paciente() -> rx.Component:
-    return rx.card(
-        rx.vstack(
-            rx.heading(
-                rx.cond(
-                    AuthState.editando_paciente,
-                    "Editar paciente",
-                    "Cadastrar paciente",
-                ),
-                size="5",
-                color="#173b61",
-                class_name="patient-form-title",
-            ),
-            rx.input(
-                placeholder="Nome completo",
-                value=AuthState.nome_paciente,
-                on_change=rx.call_script(
-                    _FILTRAR_NOME,
-                    callback=AuthState.set_nome_paciente,
-                ),
-                max_length=120,
-                width="100%",
-                class_name="paciente-form-field",
-            ),
-            rx.input(
-                placeholder="CPF: 000.000.000-00",
-                type="tel",
-                value=AuthState.cpf_paciente,
-                on_change=rx.call_script(
-                    _FORMATAR_CPF,
-                    callback=AuthState.set_cpf_paciente,
-                ),
-                max_length=14,
-                width="100%",
-                class_name="paciente-form-field",
-            ),
-            rx.input(
-                placeholder="Data de nascimento: dd/mm/aaaa",
-                type="text",
-                inputmode="numeric",
-                value=AuthState.nascimento_paciente,
-                on_change=AuthState.set_nascimento_paciente,
-                max_length=10,
-                width="100%",
-                class_name="paciente-form-field",
-            ),
-            rx.input(
-                placeholder="Telefone: (00) 00000-0000",
-                type="tel",
-                value=AuthState.telefone_paciente,
-                on_change=rx.call_script(
-                    _FORMATAR_TELEFONE,
-                    callback=AuthState.set_telefone_paciente,
-                ),
-                max_length=15,
-                width="100%",
-                class_name="paciente-form-field",
-            ),
-            rx.input(
-                placeholder="Endereço",
-                value=AuthState.endereco_paciente,
-                on_change=AuthState.set_endereco_paciente,
-                width="100%",
-                class_name="paciente-form-field",
-            ),
-            rx.input(
-                placeholder="Contato de emergência: (00) 00000-0000",
-                type="tel",
-                value=AuthState.emergencia_paciente,
-                on_change=rx.call_script(
-                    _FORMATAR_TELEFONE,
-                    callback=AuthState.set_emergencia_paciente,
-                ),
-                max_length=15,
-                width="100%",
-                class_name="paciente-form-field",
-            ),
-            rx.cond(
-                AuthState.erro_paciente != "",
-                rx.text(AuthState.erro_paciente, color="red"),
-            ),
-            rx.cond(
-                AuthState.sucesso_paciente != "",
-                rx.text(AuthState.sucesso_paciente, color="green"),
-            ),
-            rx.center(
-                rx.hstack(
-                    rx.button(
-                        rx.cond(AuthState.editando_paciente, "Atualizar", "Cadastrar"),
-                        on_click=AuthState.salvar_paciente,
-                        style=_BOTAO_COMPACTO,
-                    ),
-                    rx.cond(
-                        AuthState.editando_paciente,
-                        rx.button(
-                            "Cancelar",
-                            on_click=AuthState.cancelar_edicao_paciente,
-                            style=_BOTAO_COMPACTO,
-                            variant="soft",
-                        ),
-                    ),
-                ),
-                width="100%",
-            ),
-            spacing="3",
+    return secao(
+        "Cadastrar paciente",
+        "user_round_plus",
+        entrada(
+            "Nome completo",
+            AuthState.nome_paciente,
+            rx.call_script(_FILTRAR_NOME, callback=AuthState.set_nome_paciente),
+            "Ex.: Maria da Silva",
+            obrigatorio=True,
+            max_length=120,
+        ),
+        entrada(
+            "CPF",
+            AuthState.cpf_paciente,
+            rx.call_script(_FORMATAR_CPF, callback=AuthState.set_cpf_paciente),
+            "000.000.000-00",
+            obrigatorio=True,
+            type="tel",
+            max_length=14,
+        ),
+        entrada(
+            "Data de nascimento",
+            AuthState.nascimento_paciente,
+            AuthState.set_nascimento_paciente,
+            obrigatorio=True,
+            type="date",
+        ),
+        entrada(
+            "Telefone",
+            AuthState.telefone_paciente,
+            rx.call_script(_FORMATAR_TELEFONE, callback=AuthState.set_telefone_paciente),
+            "(00) 00000-0000",
+            obrigatorio=True,
+            type="tel",
+            max_length=15,
+        ),
+        entrada(
+            "Endereço",
+            AuthState.endereco_paciente,
+            AuthState.set_endereco_paciente,
+            "Rua, número e bairro",
+            obrigatorio=True,
+        ),
+        entrada(
+            "Contato de emergência",
+            AuthState.emergencia_paciente,
+            rx.call_script(_FORMATAR_TELEFONE, callback=AuthState.set_emergencia_paciente),
+            "(00) 00000-0000",
+            obrigatorio=True,
+            type="tel",
+            max_length=15,
+        ),
+        mensagem_erro(AuthState.erro_paciente),
+        botao_acao(
+            "Cadastrar paciente",
+            AuthState.criar_paciente,
+            "criar_paciente",
+            "paciente",
+            "plus",
             width="100%",
         ),
-        background_color="white",
-        border="1px solid #dce6ef",
-        border_radius="10px",
-        box_shadow="0 8px 24px rgba(18, 57, 95, 0.06)",
-        width="100%",
+        descricao="Todos os campos são obrigatórios.",
     )
 
 
 def linha_paciente(paciente: dict[str, str]) -> rx.Component:
-    return rx.card(
-        rx.vstack(
-            rx.hstack(
-                rx.vstack(
-                    rx.text(paciente["nome"], color="#173b61", weight="bold"),
-                    rx.text("Nascimento: ", paciente["data_nascimento"], color="#52677d"),
-                    rx.text("Telefone: ", paciente["telefone"], color="#52677d"),
-                    align="start",
-                    flex="1",
-                ),
-                rx.vstack(
-                    rx.button(
-                        "Ver detalhes",
-                        on_click=AuthState.consultar_paciente(paciente["id"]),
-                        style=_BOTAO_COMPACTO,
-                    ),
-                    rx.cond(
-                        AuthState.pode_cadastrar_pacientes,
-                        rx.hstack(
-                            rx.icon_button(
-                                rx.icon("pencil", size=16),
-                                on_click=AuthState.editar_paciente(paciente["id"]),
-                                variant="soft",
-                                size="2",
-                                radius="full",
-                                title="Editar",
-                            ),
-                            rx.icon_button(
-                                rx.icon("trash-2", size=16),
-                                on_click=AuthState.excluir_paciente(paciente["id"]),
-                                variant="soft",
-                                color_scheme="red",
-                                size="2",
-                                radius="full",
-                                title="Excluir",
-                            ),
-                            spacing="2",
-                            justify="center",
-                        ),
-                    ),
-                    spacing="2",
-                    align="stretch",
-                ),
-                width="100%",
-                align="center",
+    return rx.table.row(
+        rx.table.row_header_cell(rx.text(paciente["nome"], weight="bold")),
+        rx.table.cell(data_br(paciente["data_nascimento"])),
+        rx.table.cell(paciente["telefone"]),
+        rx.table.cell(
+            botao_icone(
+                "eye",
+                "Ver detalhes",
+                AuthState.consultar_paciente(paciente["id"]),
+                "ver_paciente_" + paciente["id"],
+                "paciente",
+                "teal",
             ),
-            rx.cond(
-                AuthState.possui_paciente_selecionado,
-                rx.cond(
-                    AuthState.paciente_selecionado["id"] == paciente["id"],
-                    detalhe_paciente(),
-                    rx.fragment(),
-                ),
-                rx.fragment(),
-            ),
-            spacing="3",
-            width="100%",
+            justify="end",
         ),
-        background_color="white",
-        border="1px solid #dce6ef",
-        border_radius="10px",
-        padding="1em",
-        width="100%",
     )
 
 
 def detalhe_paciente() -> rx.Component:
     return rx.cond(
         AuthState.possui_paciente_selecionado,
-        rx.box(
-            rx.vstack(
-                rx.heading(
-                    "Detalhes do paciente",
-                    size="5",
-                    color="#173b61",
-                    class_name="patient-details-title",
-                ),
-                rx.text("Nome: ", AuthState.paciente_selecionado["nome"], color="#52677d"),
-                rx.text("CPF: ", AuthState.paciente_selecionado["cpf"], color="#52677d"),
-                rx.text(
-                    "Contato de emergência: ",
+        secao(
+            "Detalhes do paciente",
+            "id_card",
+            grade_detalhes(
+                item_detalhe("Nome", AuthState.paciente_selecionado["nome"]),
+                item_detalhe("CPF", AuthState.paciente_selecionado["cpf"]),
+                item_detalhe(
+                    "Contato de emergência",
                     AuthState.paciente_selecionado["contato_emergencia"],
-                    color="#52677d",
                 ),
-                align="start",
             ),
-            background_color="#f4f8fb",
-            border="1px solid #c8dbe9",
-            border_left="4px solid #2d78b7",
-            border_radius="8px",
-            padding="1.25em",
-            width="100%",
         ),
         rx.fragment(),
     )
 
 
-def pacientes() -> rx.Component:
-    return rx.center(
-        rx.vstack(
-            rx.hstack(
-                rx.heading("Pacientes", size="7", color="#173b61"),
-                rx.spacer(),
-                rx.button("Voltar", on_click=rx.redirect("/dashboard"), variant="outline"),
-                width="100%",
-            ),
-            rx.cond(
-                AuthState.pode_cadastrar_pacientes,
-                formulario_paciente(),
-                rx.text("Perfil com acesso somente para consulta."),
-            ),
-            rx.cond(
-                AuthState.erro_paciente != "",
-                rx.text(AuthState.erro_paciente, color="red"),
-            ),
-            rx.cond(
-                AuthState.possui_pacientes,
-                rx.foreach(AuthState.pacientes, linha_paciente),
-                rx.text("Nenhum paciente encontrado."),
-            ),
-            spacing="4",
-            width="min(100%, 64em)",
-            padding="2em",
+def _somente_consulta() -> rx.Component:
+    return rx.vstack(
+        rx.callout.root(
+            rx.callout.icon(icone("info", 16)),
+            rx.callout.text("Perfil com acesso somente para consulta."),
+            color_scheme="blue",
+            variant="soft",
+            width="100%",
         ),
-        background="#f4f8fb",
-        min_height="100vh",
+        mensagem_erro(AuthState.erro_paciente),
+        spacing="3",
         width="100%",
+        align="stretch",
+    )
+
+
+def pacientes() -> rx.Component:
+    return pagina(
+        "Pacientes",
+        "Cadastro e consulta de pacientes",
+        "users",
+        "/pacientes",
+        (acoes_tela("pacientes", AuthState.carregar_pacientes, "paciente"),),
+        rx.flex(
+            rx.box(
+                rx.cond(
+                    AuthState.pode_cadastrar_pacientes,
+                    formulario_paciente(),
+                    _somente_consulta(),
+                ),
+                flex="1 1 300px",
+                max_width="340px",
+                min_width="0",
+            ),
+            rx.vstack(
+                secao_lista(
+                    "Pacientes cadastrados",
+                    "users",
+                    AuthState.pacientes_filtrados,
+                    ["Nome", "Nascimento", "Telefone", ""],
+                    linha_paciente,
+                    "Nenhum paciente encontrado.",
+                    "Os pacientes cadastrados aparecerão aqui. Use Atualizar para consultar novamente.",
+                    "Buscar nesta página por nome ou telefone",
+                    "A busca considera apenas os registros desta página.",
+                    paginacao(
+                        "pacientes",
+                        "paciente",
+                        AuthState.pagina_pacientes,
+                        AuthState.total_paginas_pacientes,
+                        AuthState.texto_paginacao_pacientes,
+                    ),
+                    AuthState.total_registros_pacientes,
+                ),
+                detalhe_paciente(),
+                spacing="4",
+                align="stretch",
+                flex="2 1 460px",
+                min_width="0",
+            ),
+            wrap="wrap",
+            spacing="4",
+            align="start",
+            width="100%",
+        ),
     )

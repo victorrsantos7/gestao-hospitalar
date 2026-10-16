@@ -1,121 +1,96 @@
-"""Página de relatórios: ocupação de leitos e internações ativas."""
+"""Página de relatórios de ocupação e internações ativas."""
 
 import reflex as rx
 
 from gestao_hospitalar.auth_state import AuthState
+from gestao_hospitalar.relatorios_calculo import InternacaoAtiva
+from gestao_hospitalar.ui.componentes import (
+    acoes_tela,
+    data_br,
+    estado_vazio,
+    metrica,
+    secao,
+)
+from gestao_hospitalar.ui.layout import pagina
 
 
-def card_resumo_leitos() -> rx.Component:
-    return rx.card(
+def linha_internacao_ativa(internacao: InternacaoAtiva) -> rx.Component:
+    return rx.hstack(
         rx.vstack(
-            rx.heading("Ocupação de leitos", size="5", color="#000000"),
-            rx.cond(
-                AuthState.possui_leitos,
-                rx.hstack(
-                    rx.vstack(
-                        rx.text("Livres", color="#6b7b8c"),
-                        rx.text(
-                            AuthState.resumo_leitos["livres"],
-                            size="7",
-                            weight="bold",
-                            color="#1f7a4d",
-                        ),
-                        align="center",
-                    ),
-                    rx.vstack(
-                        rx.text("Ocupados", color="#6b7b8c"),
-                        rx.text(
-                            AuthState.resumo_leitos["ocupados"],
-                            size="7",
-                            weight="bold",
-                            color="#b4482b",
-                        ),
-                        align="center",
-                    ),
-                    rx.vstack(
-                        rx.text("Total", color="#6b7b8c"),
-                        rx.text(
-                            AuthState.resumo_leitos["total"],
-                            size="7",
-                            weight="bold",
-                            color="#173b61",
-                        ),
-                        align="center",
-                    ),
-                    justify="between",
-                    width="100%",
-                ),
-                rx.text("Não há leitos cadastrados.", color="#000000"),
+            rx.text("Leito ", internacao["leito_numero"], weight="bold", size="2"),
+            rx.text(
+                "Entrada: ",
+                data_br(internacao["data_entrada"]),
+                size="2",
+                color="var(--gh-muted)",
             ),
+            spacing="0",
             align="start",
-            spacing="3",
-            width="100%",
         ),
-        background_color="white",
-        border="1px solid #dce6ef",
-        border_radius="10px",
-        box_shadow="0 8px 24px rgba(18, 57, 95, 0.06)",
-        padding="1.25em",
-        width="100%",
-    )
-
-
-def linha_internacao_ativa(internacao: dict) -> rx.Component:
-    return rx.card(
-        rx.hstack(
-            rx.text("Leito ", internacao["leito_numero"], weight="bold", color="#000000"),
-            rx.spacer(),
-            rx.text("Entrada: ", internacao["data_entrada"], color="#000000"),
-            rx.spacer(),
-            rx.badge(internacao["dias_internado"], " dia(s) internado"),
-            width="100%",
+        rx.spacer(),
+        rx.badge(
+            internacao["dias_internado"],
+            " dia(s)",
+            variant="soft",
+            color_scheme="blue",
+            radius="full",
         ),
-        background_color="white",
-        border="1px solid #dce6ef",
-        border_radius="10px",
-        padding="1em",
         width="100%",
-    )
-
-
-def card_internacoes_ativas() -> rx.Component:
-    return rx.card(
-        rx.vstack(
-            rx.heading("Internações ativas", size="5", color="#000000"),
-            rx.cond(
-                AuthState.possui_internacoes_ativas,
-                rx.foreach(AuthState.lista_internacoes_ativas, linha_internacao_ativa),
-                rx.text("Não há internações ativas no momento.", color="#000000"),
-            ),
-            align="start",
-            spacing="3",
-            width="100%",
-        ),
-        background_color="white",
-        border="1px solid #dce6ef",
+        align="center",
+        padding="12px 14px",
+        border="1px solid var(--gh-border)",
         border_radius="10px",
-        box_shadow="0 8px 24px rgba(18, 57, 95, 0.06)",
-        padding="1.25em",
-        width="100%",
     )
 
 
 def relatorios() -> rx.Component:
-    return rx.center(
-        rx.vstack(
-            rx.hstack(
-                rx.heading("Relatórios", size="7", color="#000000"),
-                rx.spacer(),
-                rx.button("Voltar", on_click=rx.redirect("/dashboard"), variant="outline"),
-                width="100%",
+    return pagina(
+        "Relatórios",
+        "Ocupação de leitos e internações ativas",
+        "chart_no_axes_combined",
+        "/relatorios",
+        (acoes_tela("relatorios", AuthState.carregar_relatorios, "relatorio"),),
+        rx.grid(
+            metrica(
+                "Leitos livres",
+                AuthState.resumo_leitos["livres"],
+                "bed",
+                "green",
             ),
-            card_resumo_leitos(),
-            card_internacoes_ativas(),
+            metrica(
+                "Leitos ocupados",
+                AuthState.resumo_leitos["ocupados"],
+                "bed_double",
+                "amber",
+            ),
+            metrica(
+                "Total de leitos",
+                AuthState.resumo_leitos["total"],
+                "hospital",
+                "teal",
+            ),
+            columns="repeat(auto-fit, minmax(180px, 1fr))",
             spacing="4",
-            width="min(100%, 64em)",
-            padding="2em",
+            width="100%",
         ),
-        background="#f4f8fb",
-        min_height="100vh",
-        width="100%",
+        secao(
+            "Internações ativas",
+            "activity",
+            rx.cond(
+                AuthState.possui_internacoes_ativas,
+                rx.vstack(
+                    rx.foreach(
+                        AuthState.lista_internacoes_ativas,
+                        linha_internacao_ativa,
+                    ),
+                    spacing="2",
+                    width="100%",
+                ),
+                estado_vazio(
+                    "bed_double",
+                    "Nenhuma internação ativa.",
+                    "As internações em andamento aparecerão aqui.",
+                ),
+            ),
+        ),
     )

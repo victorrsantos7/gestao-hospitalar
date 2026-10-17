@@ -481,6 +481,10 @@ body {
   padding: clamp(24px, 5vw, 64px);
 }
 
+.gh-login-painel-compacta {
+  display: none;
+}
+
 @media (max-width: 900px) {
   .gh-login { grid-template-columns: 1fr; }
   .gh-login-painel { min-height: 220px; }
@@ -488,12 +492,23 @@ body {
 }
 
 @media (max-width: 480px) {
-  /* Abaixo de 480px o painel ilustrado some: a marca já aparece de forma
-     compacta no topo do formulário (gh-login-form), então manter os dois
-     era redundante e, em aparelhos com viewport efetivo menor que o
-     simulado (barra de endereço, fonte do sistema ampliada), empurrava o
-     botão "Entrar" para fora da área visível sem rolar. */
-  .gh-login-painel { display: none; }
+  /* Abaixo de 480px o painel vira uma faixa fina (só logo + nome): o
+     conteúdo completo (título, frase e destaques) não cabia sem rolar em
+     aparelhos reais, cujo viewport efetivo (descontando a barra de
+     endereço) é menor que o simulado em devtools. A marca própria do
+     formulário some para não duplicar a da faixa. */
+  .gh-login-painel {
+    min-height: 0;
+    display: flex;
+    align-items: center;
+  }
+  .gh-login-painel-texto { display: none; }
+  .gh-login-painel-compacta {
+    display: flex;
+    position: relative;
+    padding: 16px 20px;
+  }
+  .gh-login-form-marca { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {

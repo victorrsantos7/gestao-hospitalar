@@ -2,7 +2,7 @@
 
 ## 1. Tela de login em celular
 
-- [x] 1.1 Faixa `@media (max-width: 480px)`: painel ilustrado oculto (a marca já aparece compacta no topo do formulário); verificar em 360 a 390 px de largura, inclusive com alturas reduzidas (até 580 px), sem rolagem até o botão "Entrar". Validado também em aparelho real (Galaxy S24) após a correção inicial (só ocultar os destaques) não ter sido suficiente.
+- [x] 1.1 Faixa `@media (max-width: 480px)`: painel vira uma faixa fina com só logo pequeno e nome, centralizados verticalmente (o conteúdo da faixa é centralizado porque o grid estica a linha do painel para preencher o viewport); sem título, frase nem destaques — testado trazer de volta título+frase (não cabe abaixo de ~640 px de altura) e o conteúdo completo (não cabe abaixo de ~700 px), então mantida só a versão compacta, única com margem confirmada em todas as alturas testadas (até 540 px). A marca duplicada do formulário some para não repetir a mesma informação. Validado em aparelho real (Galaxy S24): a 1ª tentativa (só ocultar os destaques) não coube; a 2ª (ocultar o painel inteiro) coube mas removeu todo traço de marca; esta 3ª versão (faixa compacta) atende as duas necessidades.
 - [x] 1.2 Confirmar que a faixa de 481 a 900 px (painel reduzido, com destaques) e o layout de telas largas (≥ 901 px) continuam iguais.
 
 ## 2. Cabeçalho de cartão

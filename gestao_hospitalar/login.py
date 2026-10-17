@@ -26,6 +26,13 @@ def _destaque(nome_icone: str, texto: str) -> rx.Component:
 def _painel() -> rx.Component:
     return rx.box(
         painel_login(),
+        rx.hstack(
+            marca(26),
+            rx.text("Gestão Hospitalar", weight="bold", size="3", color="white"),
+            spacing="2",
+            align="center",
+            class_name="gh-login-painel-compacta",
+        ),
         rx.vstack(
             marca(52),
             rx.heading("Gestão Hospitalar", size="8", color="white", weight="bold"),
@@ -59,6 +66,7 @@ def _formulario() -> rx.Component:
             spacing="3",
             align="center",
             margin_bottom="8px",
+            class_name="gh-login-form-marca",
         ),
         rx.vstack(
             rx.heading("Bem-vindo(a)!", size="6", class_name="gh-titulo-pagina"),

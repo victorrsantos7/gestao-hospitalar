@@ -1,0 +1,481 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gestão Hospitalar — Apresentação</title>
+<style>
+/* Inter local (SIL OFL, ver fonts/Inter-OFL.txt): sem dependência de rede. */
+@font-face { font-family: "Inter"; font-style: normal; font-weight: 400 700; font-display: swap;
+  src: url("fonts/inter-latin-ext.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: "Inter"; font-style: normal; font-weight: 400 700; font-display: swap;
+  src: url("fonts/inter-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+
+:root {
+  --bg: #f3f7f9; --surface: #ffffff; --border: #dce5ea; --text: #142c36; --muted: #5a7280;
+  --side: #0a2b37; --side-2: #082b38; --p9: #0e6179; --p10: #0b536a; --p11: #0a4a5e;
+  --p3: #d5ebf1; --p2: #eaf5f8; --p7: #56a3b8; --accent: #7fd3e6;
+  --ok: #1a8a6a; --warn: #c27d12; --err: #c2383a;
+  --shadow: 0 10px 28px rgba(10, 43, 55, .12);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; background: #061c25; font-family: "Inter", system-ui, "Segoe UI", sans-serif; color: var(--text); overflow: hidden; }
+
+/* Palco 16:9 fixo (1280x720), escalado para caber na janela. */
+#viewport { position: fixed; inset: 0; display: grid; place-items: center; }
+#stage { width: 1280px; height: 720px; position: relative; transform-origin: center center; flex: none; }
+.slide { position: absolute; inset: 0; background: var(--bg); padding: 56px 72px 64px; display: flex; flex-direction: column;
+  opacity: 0; visibility: hidden; transition: opacity .35s ease, transform .35s ease; transform: translateX(24px); overflow: hidden; }
+.slide.vc { justify-content: center; padding-bottom: 92px; }
+.slide.ativo { opacity: 1; visibility: visible; transform: none; }
+.slide.saiu { transform: translateX(-24px); }
+
+/* Tipografia */
+.kicker { font-size: 13px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--p9); margin-bottom: 10px; }
+h1 { font-size: 54px; line-height: 1.05; letter-spacing: -.025em; font-weight: 700; }
+h2 { font-size: 36px; line-height: 1.12; letter-spacing: -.02em; font-weight: 700; margin-bottom: 8px; }
+h3 { font-size: 18px; font-weight: 700; letter-spacing: -.01em; }
+.lead { font-size: 19px; line-height: 1.5; color: var(--muted); max-width: 760px; }
+p, li { font-size: 17px; line-height: 1.5; }
+.muted { color: var(--muted); }
+ul.pts { list-style: none; display: grid; gap: 12px; margin-top: 18px; }
+ul.pts li { position: relative; padding-left: 26px; }
+ul.pts li::before { content: ""; position: absolute; left: 2px; top: 9px; width: 10px; height: 10px; border-radius: 3px; background: var(--p9); }
+ul.pts b { color: var(--p11); }
+
+/* Capa e encerramento (escuros) */
+.escuro { background: linear-gradient(145deg, #0e6179, #082b38 70%); color: #fff; justify-content: center; }
+.escuro .kicker { color: var(--accent); }
+.escuro .lead { color: #c3d8e0; }
+.escuro::before { content: ""; position: absolute; right: -140px; top: -140px; width: 520px; height: 520px; border-radius: 50%; background: rgba(255,255,255,.05); }
+.escuro::after { content: ""; position: absolute; left: -160px; bottom: -200px; width: 560px; height: 560px; border-radius: 50%; background: rgba(255,255,255,.05); }
+.pulso { position: absolute; left: 0; right: 0; bottom: 150px; opacity: .55; }
+.escuro > *:not(.pulso) { position: relative; z-index: 1; }
+.escuro > .pulso { z-index: 0; }
+.marca-linha { display: flex; align-items: center; gap: 18px; margin-bottom: 34px; }
+.marca-linha span { font-size: 20px; font-weight: 700; letter-spacing: -.01em; }
+.rodape-capa { margin-top: 38px; font-size: 15px; color: #9fc3cf; display: flex; gap: 22px; }
+
+/* Layout dois blocos */
+.corpo { display: grid; grid-template-columns: 5fr 7fr; gap: 40px; align-items: center; flex: 1; min-height: 0; margin-top: 12px; }
+.corpo.inverso { grid-template-columns: 7fr 5fr; }
+.corpo.inverso .texto { order: 2; }
+.corpo.largo { grid-template-columns: 1fr; }
+
+/* Moldura de captura */
+.janela { background: #fff; border-radius: 12px; box-shadow: var(--shadow); border: 1px solid var(--border); overflow: hidden; display: flex; flex-direction: column; min-height: 0; }
+.janela .barra { height: 26px; background: #e9f0f3; display: flex; align-items: center; gap: 6px; padding: 0 12px; flex: none; border-bottom: 1px solid var(--border); }
+.janela .barra i { width: 9px; height: 9px; border-radius: 50%; background: #c3d1d8; display: block; }
+.janela img { display: block; width: 100%; height: auto; }
+.janela.corte { max-height: 100%; }
+.janela.corte .quadro { overflow: hidden; min-height: 0; }
+.legenda { font-size: 12.5px; color: var(--muted); margin-top: 9px; }
+
+/* Cartões */
+.grade { display: grid; gap: 18px; margin-top: 26px; }
+.g4 { grid-template-columns: repeat(4, 1fr); } .g3 { grid-template-columns: repeat(3, 1fr); } .g2 { grid-template-columns: repeat(2, 1fr); }
+.cartao { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px 22px; box-shadow: 0 1px 2px rgba(10,43,55,.06); }
+.cartao h3 { margin: 12px 0 6px; }
+.cartao p { font-size: 15px; color: var(--muted); }
+.cartao .tag { display: inline-block; margin-top: 12px; font-size: 12px; font-weight: 600; color: var(--p11); background: var(--p3); border-radius: 999px; padding: 3px 10px; }
+.ico { width: 40px; height: 40px; border-radius: 11px; background: var(--p2); color: var(--p9); display: grid; place-items: center; }
+.ico svg { width: 22px; height: 22px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+/* Jornada */
+.jornada { display: grid; grid-template-columns: repeat(6, 1fr); gap: 0; margin-top: 52px; }
+.passo { position: relative; text-align: center; padding: 0 8px; }
+.passo .no { width: 64px; height: 64px; margin: 0 auto 16px; border-radius: 50%; background: var(--p9); color: #fff; display: grid; place-items: center; position: relative; z-index: 1; box-shadow: 0 0 0 8px var(--p3); }
+.passo .no svg { width: 28px; height: 28px; stroke: #fff; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.passo::after { content: ""; position: absolute; top: 32px; left: 50%; width: 100%; height: 3px; background: var(--p3); z-index: 0; }
+.passo:last-child::after { display: none; }
+.passo h3 { font-size: 16px; } .passo p { font-size: 14px; color: var(--muted); margin-top: 6px; }
+.faixa { margin-top: 44px; background: var(--p2); border: 1px solid var(--p3); border-radius: 14px; padding: 18px 24px; font-size: 16px; color: var(--p11); display: flex; gap: 14px; align-items: center; }
+
+/* Resiliência */
+.linha-tempo { display: flex; align-items: stretch; gap: 0; margin-top: 18px; }
+.tentativa { flex: 1; text-align: center; padding: 14px 8px; border-radius: 10px; font-size: 14px; font-weight: 600; }
+.tentativa small { display: block; font-weight: 500; margin-top: 3px; font-size: 12px; opacity: .85; }
+.t-falha { background: #fbe7e7; color: var(--err); } .t-ok { background: #def3ec; color: var(--ok); }
+.espera { width: 66px; display: grid; place-items: center; font-size: 12px; color: var(--muted); font-weight: 600; position: relative; }
+.espera::before { content: ""; position: absolute; left: 4px; right: 4px; top: 50%; height: 2px; background: repeating-linear-gradient(90deg, var(--p7) 0 4px, transparent 4px 8px); }
+.espera span { background: var(--bg); padding: 0 4px; position: relative; }
+.num { font-size: 40px; font-weight: 700; letter-spacing: -.02em; color: var(--p9); line-height: 1; }
+.num-leg { font-size: 14px; color: var(--muted); margin-top: 6px; }
+
+/* Arquitetura */
+.arq { display: grid; grid-template-columns: 1fr 70px 1fr 70px 1fr; align-items: center; margin-top: 34px; }
+.caixa { background: var(--surface); border: 2px solid var(--p3); border-radius: 16px; padding: 22px; text-align: center; box-shadow: 0 1px 2px rgba(10,43,55,.06); }
+.caixa.forte { background: var(--p9); border-color: var(--p9); color: #fff; }
+.caixa h3 { font-size: 20px; } .caixa p { font-size: 14px; margin-top: 6px; color: var(--muted); } .caixa.forte p { color: #cfe6ed; }
+.seta { text-align: center; color: var(--p7); font-size: 12px; font-weight: 600; }
+.seta svg { width: 54px; height: 24px; stroke: var(--p7); fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; display: block; margin: 0 auto 3px; }
+
+/* Navegação */
+#progresso { position: absolute; left: 0; bottom: 0; height: 4px; background: var(--p9); width: 0; transition: width .3s ease; z-index: 5; }
+#rodape { position: absolute; left: 72px; right: 72px; bottom: 20px; display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--muted); z-index: 4; }
+.escuro-ativo #rodape { color: #9fc3cf; }
+#controles { position: fixed; right: 14px; bottom: 12px; display: flex; gap: 6px; z-index: 10; opacity: 0; transition: opacity .2s; }
+body:hover #controles { opacity: 1; }
+#controles button { width: 36px; height: 36px; border-radius: 10px; border: 0; background: rgba(255,255,255,.92); color: var(--p11); cursor: pointer; font: 600 16px "Inter", sans-serif; box-shadow: 0 2px 8px rgba(0,0,0,.2); }
+#controles button:hover { background: #fff; }
+#ajuda-teclas { position: fixed; left: 14px; bottom: 12px; color: #9fc3cf; font-size: 12px; z-index: 10; opacity: 0; transition: opacity .2s; }
+body:hover #ajuda-teclas { opacity: 1; }
+
+@media print {
+  @page { size: 1280px 720px; margin: 0; }
+  html, body { background: #fff; overflow: visible; height: auto; }
+  #viewport { position: static; display: block; }
+  #stage { transform: none !important; width: 1280px; height: auto; }
+  .slide { position: relative; opacity: 1; visibility: visible; transform: none; height: 720px; page-break-after: always; break-after: page; }
+  #controles, #ajuda-teclas, #progresso { display: none; }
+  .slide, .slide * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
+@media (prefers-reduced-motion: reduce) { .slide { transition: none; } }
+</style>
+</head>
+<body>
+<div id="viewport">
+<div id="stage">
+
+<!-- 1. Capa -->
+<section class="slide escuro" data-escuro>
+  <svg class="pulso" width="1280" height="120" viewBox="0 0 1280 120" fill="none" aria-hidden="true"><path d="M0 70h360l50-52 80 104 56-52h734" stroke="#7FD3E6" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+  <div class="marca-linha">
+    <svg width="56" height="56" viewBox="0 0 40 40" fill="none" aria-hidden="true"><defs><linearGradient id="gm" x1="4" y1="2" x2="36" y2="38" gradientUnits="userSpaceOnUse"><stop stop-color="#1B8AA6"/><stop offset="1" stop-color="#0A4A5E"/></linearGradient></defs><rect width="40" height="40" rx="11" fill="url(#gm)"/><path d="M16.5 8h7v8.5H32v7h-8.5V32h-7v-8.5H8v-7h8.5z" fill="#fff"/><path d="M6 20h8.5l2.5-5.5 4 11 2.7-5.5H34" stroke="#0E6179" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <span>Gestão Hospitalar</span>
+  </div>
+  <div class="kicker">Sistema de gestão da jornada do paciente</div>
+  <h1>Do cadastro à alta,<br>tudo em um só lugar.</h1>
+  <p class="lead" style="margin-top:22px">Pacientes, atendimentos, internações, leitos e histórico, com acesso por perfil e dados sempre atualizados.</p>
+  <div class="rodape-capa"><span>Reflex + Xano</span><span>•</span><span>Dados das telas: fictícios</span></div>
+</section>
+
+<!-- 2. Problema e objetivo -->
+<section class="slide vc">
+  <div class="kicker">Contexto</div>
+  <h2>O histórico do paciente não pode ficar espalhado</h2>
+  <p class="lead">Atendimentos, diagnósticos, internações e transferências costumam viver em lugares diferentes. Fica difícil acompanhar a evolução do paciente e controlar a ocupação de leitos.</p>
+  <div class="grade g3" style="margin-top:34px">
+    <div class="cartao"><div class="ico"><svg viewBox="0 0 24 24"><path d="M3 5h18M3 12h18M3 19h12"/></svg></div><h3>O problema</h3><p>Informação dispersa, sem uma visão única do paciente e da operação do hospital.</p></div>
+    <div class="cartao"><div class="ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/></svg></div><h3>O objetivo</h3><p>Centralizar a jornada: cadastro, atendimento, internação, transferência e histórico rastreável.</p></div>
+    <div class="cartao"><div class="ico"><svg viewBox="0 0 24 24"><path d="M5 12l4 4 10-10"/></svg></div><h3>O resultado</h3><p>Equipes certas vendo as informações certas, com regras de negócio aplicadas no servidor.</p></div>
+  </div>
+</section>
+
+<!-- 3. Jornada -->
+<section class="slide vc">
+  <div class="kicker">Visão geral</div>
+  <h2>A jornada do paciente, passo a passo</h2>
+  <div class="jornada">
+    <div class="passo"><div class="no"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M18 8v6M15 11h6"/></svg></div><h3>Cadastro</h3><p>Paciente, médico e convênio</p></div>
+    <div class="passo"><div class="no"><svg viewBox="0 0 24 24"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V3h6v1M9 11h6M9 15h4"/></svg></div><h3>Atendimento</h3><p>Consulta, retorno ou emergência</p></div>
+    <div class="passo"><div class="no"><svg viewBox="0 0 24 24"><path d="M6 3v6a4 4 0 008 0V3M10 13v3a4 4 0 008 0v-1"/><circle cx="18" cy="13" r="2"/></svg></div><h3>Diagnóstico</h3><p>Descrição e código CID</p></div>
+    <div class="passo"><div class="no"><svg viewBox="0 0 24 24"><path d="M3 18v-6a2 2 0 012-2h14a2 2 0 012 2v6M3 18h18M3 21v-3M21 21v-3M7 10V7a2 2 0 012-2h6a2 2 0 012 2v3"/></svg></div><h3>Internação</h3><p>Leito livre e data de entrada</p></div>
+    <div class="passo"><div class="no"><svg viewBox="0 0 24 24"><path d="M4 8h13l-3-3M20 16H7l3 3"/></svg></div><h3>Transferência</h3><p>Setor de destino e motivo</p></div>
+    <div class="passo"><div class="no"><svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 109-9 9 9 0 00-6.4 2.6L3 8M3 3v5h5M12 7v5l3 2"/></svg></div><h3>Histórico</h3><p>Linha do tempo completa</p></div>
+  </div>
+  <div class="faixa"><b>Alta:</b> a internação é encerrada, o leito volta a ficar livre e o histórico continua consultável.</div>
+</section>
+
+<!-- 4. Perfis -->
+<section class="slide">
+  <div class="kicker">Segurança e acesso</div>
+  <h2>Cada perfil vê só o que precisa</h2>
+  <div class="corpo inverso">
+    <div class="texto">
+      <div class="grade g2" style="margin-top:0">
+        <div class="cartao"><h3 style="margin-top:0">Recepção</h3><p>Pacientes, médicos, convênios e atendimentos.</p></div>
+        <div class="cartao"><h3 style="margin-top:0">Médico</h3><p>Consulta pacientes e atendimentos; registra diagnósticos.</p></div>
+        <div class="cartao"><h3 style="margin-top:0">Enfermagem e gestão</h3><p>Internações, leitos, transferências, histórico e relatórios.</p></div>
+        <div class="cartao"><h3 style="margin-top:0">Administrador</h3><p>Acesso a todos os módulos.</p></div>
+      </div>
+      <ul class="pts"><li>Menu e painel se adaptam ao perfil.</li><li><b>Permissões também no servidor (Xano):</b> esconder uma tela não é a única proteção.</li></ul>
+    </div>
+    <div>
+      <div class="janela"><div class="barra"><i></i><i></i><i></i></div><img src="img/painel_medico.png" alt="Painel do perfil médico, com menu reduzido"></div>
+      <div class="legenda">Perfil médico: só Painel, Pacientes e Atendimentos no menu.</div>
+    </div>
+  </div>
+</section>
+
+<!-- 5. Painel -->
+<section class="slide">
+  <div class="kicker">Painel</div>
+  <h2>A operação do hospital num relance</h2>
+  <div class="corpo">
+    <div class="texto">
+      <ul class="pts">
+        <li><b>Indicadores</b> de pacientes, médicos, atendimentos e internações.</li>
+        <li><b>Atendimentos por período:</b> 7 dias, 30 dias ou 12 semanas.</li>
+        <li><b>Ocupação de leitos</b> com alerta de cor (âmbar a 75%, vermelho a 90%).</li>
+        <li><b>Atividade recente</b> e avisos de emergências do dia.</li>
+      </ul>
+    </div>
+    <div>
+      <div class="janela"><div class="barra"><i></i><i></i><i></i></div><img src="img/painel.png" alt="Painel com indicadores e gráficos"></div>
+      <div class="legenda">Dados fictícios. Os gráficos carregam em segundo plano, sem travar a navegação.</div>
+    </div>
+  </div>
+</section>
+
+<!-- 6. Cadastros -->
+<section class="slide">
+  <div class="kicker">Cadastros</div>
+  <h2>Pacientes, médicos e convênios com regras claras</h2>
+  <div class="corpo inverso">
+    <div class="texto">
+      <ul class="pts">
+        <li><b>CPF</b> e <b>CRM</b> validados e únicos.</li>
+        <li>Campos obrigatórios conferidos antes de salvar.</li>
+        <li>Busca na lista, detalhes por registro e paginação.</li>
+        <li>Editar e excluir (médico sem atendimentos vinculados).</li>
+      </ul>
+    </div>
+    <div>
+      <div class="janela"><div class="barra"><i></i><i></i><i></i></div><img src="img/pacientes.png" alt="Cadastro e consulta de pacientes"></div>
+      <div class="legenda">Cadastro de pacientes (dados fictícios).</div>
+    </div>
+  </div>
+</section>
+
+<!-- 7. Atendimentos -->
+<section class="slide">
+  <div class="kicker">Atendimentos</div>
+  <h2>Do primeiro contato ao diagnóstico</h2>
+  <div class="corpo">
+    <div class="texto">
+      <ul class="pts">
+        <li>Vínculo entre <b>paciente</b>, <b>médico</b> e <b>convênio</b> (opcional).</li>
+        <li>Tipos: consulta, retorno e emergência.</li>
+        <li>Detalhes do atendimento com os <b>diagnósticos</b> e o código CID.</li>
+        <li>Médicos registram o diagnóstico; a recepção registra o atendimento.</li>
+      </ul>
+    </div>
+    <div>
+      <div class="janela"><div class="barra"><i></i><i></i><i></i></div><img src="img/atendimentos.png" alt="Cadastro e lista de atendimentos"></div>
+      <div class="legenda">Atendimentos registrados (dados fictícios).</div>
+    </div>
+  </div>
+</section>
+
+<!-- 8. Internações -->
+<section class="slide">
+  <div class="kicker">Internações e leitos</div>
+  <h2>Ocupação, alta e transferência sob controle</h2>
+  <div class="corpo inverso">
+    <div class="texto">
+      <ul class="pts">
+        <li>Um leito só pode ter <b>um paciente</b> por vez.</li>
+        <li><b>Registrar alta</b> libera o leito na hora.</li>
+        <li><b>Transferência</b> com data, setor de destino e motivo.</li>
+        <li>Internação encerrada não aceita novas transferências.</li>
+      </ul>
+    </div>
+    <div>
+      <div class="janela"><div class="barra"><i></i><i></i><i></i></div><img src="img/internacoes.png" alt="Internações e leitos"></div>
+      <div class="legenda">Internações e leitos (dados fictícios).</div>
+    </div>
+  </div>
+</section>
+
+<!-- 9. Histórico e relatórios -->
+<section class="slide">
+  <div class="kicker">Acompanhamento</div>
+  <h2>Histórico do paciente e relatório de ocupação</h2>
+  <div class="corpo">
+    <div class="texto">
+      <ul class="pts">
+        <li><b>Histórico:</b> linha do tempo com atendimentos, diagnósticos, internações e transferências.</li>
+        <li><b>Relatório:</b> total de leitos, ocupados, livres e internações ativas.</li>
+        <li>Pensado para enfermagem e gestão acompanharem a operação.</li>
+      </ul>
+    </div>
+    <div>
+      <div class="janela"><div class="barra"><i></i><i></i><i></i></div><img src="img/relatorios.png" alt="Relatório de ocupação de leitos"></div>
+      <div class="legenda">Relatório de ocupação (dados fictícios).</div>
+    </div>
+  </div>
+</section>
+
+<!-- 10. Ajuda -->
+<section class="slide">
+  <div class="kicker">Novo</div>
+  <h2>Ajuda de uso dentro do sistema</h2>
+  <div class="corpo inverso">
+    <div class="texto">
+      <ul class="pts">
+        <li>Botão de ajuda no painel abre um <b>modal</b>, sem sair da tela.</li>
+        <li>Instruções <b>por módulo</b>, só dos módulos do seu perfil.</li>
+        <li>Passos, dicas e solução de problemas comuns.</li>
+        <li>Acessível pelo teclado; Esc fecha.</li>
+      </ul>
+    </div>
+    <div>
+      <div class="janela"><div class="barra"><i></i><i></i><i></i></div><img src="img/ajuda.png" alt="Modal de ajuda de uso"></div>
+      <div class="legenda">Ajuda de uso (módulo Atendimentos e diagnósticos).</div>
+    </div>
+  </div>
+</section>
+
+<!-- 11. Responsivo -->
+<section class="slide">
+  <div class="kicker">Qualquer tela</div>
+  <h2>Do celular ao monitor grande</h2>
+  <div style="display:grid; grid-template-columns: 4fr 220px 220px; gap:32px; align-items:start; margin-top:20px; flex:1; min-height:0">
+    <div>
+      <ul class="pts" style="margin-top:6px">
+        <li>Menu lateral que se recolhe em telas médias e vira gaveta no celular.</li>
+        <li>Tabelas, formulários e gráficos se reorganizam.</li>
+        <li>Cartões compactos, pouco espaço em branco e feedback em cada ação: carregando, aviso de sucesso ou erro.</li>
+      </ul>
+    </div>
+    <div><div class="janela corte" style="height:470px"><div class="quadro"><img src="img/celular_painel.png" alt="Painel no celular"></div></div><div class="legenda">Painel no celular</div></div>
+    <div><div class="janela corte" style="height:470px"><div class="quadro"><img src="img/celular_pacientes.png" alt="Pacientes no celular"></div></div><div class="legenda">Pacientes no celular</div></div>
+  </div>
+</section>
+
+<!-- 12. Resiliência -->
+<section class="slide vc">
+  <div class="kicker">Confiabilidade</div>
+  <h2>Leitura que aguenta um Xano lento</h2>
+  <p class="lead" style="font-size:17px">Nos logs, o serviço remoto limitou requisições (HTTP 429) em rajadas e chegou a demorar mais de 5 s para responder. Antes, uma falha virava erro na tela, às vezes de forma persistente.</p>
+  <div class="linha-tempo" style="margin-top:24px">
+    <div class="tentativa t-falha">1ª tentativa<small>429 · limite</small></div>
+    <div class="espera"><span>0,5 s</span></div>
+    <div class="tentativa t-falha">2ª tentativa<small>429 · limite</small></div>
+    <div class="espera"><span>1 s</span></div>
+    <div class="tentativa t-ok">3ª tentativa<small>200 · dados na tela</small></div>
+  </div>
+  <div class="grade g3" style="margin-top:26px">
+    <div class="cartao"><h3 style="margin-top:0">Repetição automática</h3><p>Só leituras (GET), com espera crescente e respeito ao <i>Retry-After</i>; um 429 pausa todas as requisições. Escritas nunca se repetem.</p></div>
+    <div class="cartao"><h3 style="margin-top:0">Menos rajadas</h3><p>Conexão reaproveitada, no máximo 3 requisições simultâneas e limite por janela abaixo da cota do Xano.</p></div>
+    <div class="cartao"><h3 style="margin-top:0">Resposta clara</h3><p>Botão <b>Tentar novamente</b> na falha; sessão expirada avisa e leva ao login.</p></div>
+  </div>
+</section>
+
+<!-- 13. Arquitetura -->
+<section class="slide vc">
+  <div class="kicker">Arquitetura</div>
+  <h2>Python de ponta a ponta, backend remoto</h2>
+  <div class="arq">
+    <div class="caixa"><h3>Navegador</h3><p>Interface compilada pelo Reflex</p></div>
+    <div class="seta"><svg viewBox="0 0 54 24"><path d="M2 12h48M42 5l8 7-8 7"/></svg>eventos</div>
+    <div class="caixa forte"><h3>Reflex (Python)</h3><p>Telas, estado, validações e regras de autorização</p></div>
+    <div class="seta"><svg viewBox="0 0 54 24"><path d="M2 12h48M42 5l8 7-8 7"/></svg>API HTTPS</div>
+    <div class="caixa"><h3>Xano</h3><p>Persistência e permissões por perfil</p></div>
+  </div>
+  <ul class="pts" style="margin-top:34px">
+    <li>Frontend e backend na <b>mesma base Python</b>; nenhuma outra tecnologia de interface.</li>
+    <li><b>Sem banco local:</b> a persistência é exclusivamente a API do Xano.</li>
+    <li>Logs sem senhas, tokens ou dados do paciente.</li>
+  </ul>
+</section>
+
+<!-- 14. Qualidade -->
+<section class="slide vc">
+  <div class="kicker">Qualidade</div>
+  <h2>Mudanças pequenas, especificadas e testadas</h2>
+  <div class="grade g4">
+    <div class="cartao"><div class="num">Testes</div><div class="num-leg">automatizados rodando a cada mudança</div></div>
+    <div class="cartao"><div class="num">5</div><div class="num-leg">etapas por mudança: Explorar, Propor, Revisar, Aplicar, Arquivar</div></div>
+    <div class="cartao"><div class="num">2</div><div class="num-leg">camadas de proteção: interface e servidor</div></div>
+    <div class="cartao"><div class="num">4</div><div class="num-leg">perfis conferidos no navegador, em telas pequena e grande</div></div>
+  </div>
+  <ul class="pts" style="margin-top:30px">
+    <li>Cada mudança vira uma <b>especificação (OpenSpec)</b> com cenários verificáveis.</li>
+    <li><b>Revisão técnica</b> a cada bloco: redundâncias, código morto e inconsistências.</li>
+    <li>Teste visual em telas pequena e grande e com os quatro perfis.</li>
+  </ul>
+</section>
+
+<!-- 15. Próximos passos -->
+<section class="slide vc">
+  <div class="kicker">Próximos passos</div>
+  <h2>O que vem a seguir</h2>
+  <div class="grade g3">
+    <div class="cartao"><div class="ico"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M4 20h16"/></svg></div><h3>Portabilidade</h3><p>Estudo de formas de levar o app para o time testar com facilidade: contêiner, pacote portátil ou instância compartilhada.</p><span class="tag">Em estudo</span></div>
+    <div class="cartao"><div class="ico"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-5-5"/></svg></div><h3>Busca no servidor</h3><p>Hoje a busca vale para a página aberta; levar o filtro para o Xano.</p><span class="tag">Backlog</span></div>
+    <div class="cartao"><div class="ico"><svg viewBox="0 0 24 24"><path d="M4 19V9M10 19V5M16 19v-7M22 19H2"/></svg></div><h3>Relatórios</h3><p>Mais recortes de ocupação e de atendimentos, por médico e por convênio.</p><span class="tag">Backlog</span></div>
+  </div>
+  <div class="faixa" style="margin-top:34px">Fora do escopo atual: faturamento, prescrição, agenda de consultas e integração com sistemas externos.</div>
+</section>
+
+<!-- 16. Encerramento -->
+<section class="slide escuro" data-escuro>
+  <svg class="pulso" width="1280" height="120" viewBox="0 0 1280 120" fill="none" aria-hidden="true"><path d="M0 70h360l50-52 80 104 56-52h734" stroke="#7FD3E6" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+  <div class="kicker">Obrigado</div>
+  <h1>Perguntas?</h1>
+  <p class="lead" style="margin-top:22px">Gestão Hospitalar — a jornada do paciente, do cadastro à alta.</p>
+  <div class="rodape-capa"><span>Reflex + Xano</span><span>•</span><span>Capturas com dados fictícios</span></div>
+</section>
+
+<div id="progresso"></div>
+<div id="rodape"><span>Gestão Hospitalar</span><span id="contador"></span></div>
+</div>
+</div>
+
+<div id="ajuda-teclas">← → navegar · F tela cheia · Home/End · P imprimir (PDF)</div>
+<div id="controles"><button id="ant" aria-label="Slide anterior">‹</button><button id="prox" aria-label="Próximo slide">›</button><button id="tela" aria-label="Tela cheia">⛶</button></div>
+
+<script>
+(function () {
+  var stage = document.getElementById('stage');
+  var slides = Array.prototype.slice.call(stage.querySelectorAll('.slide'));
+  var barra = document.getElementById('progresso');
+  var contador = document.getElementById('contador');
+  var atual = 0;
+
+  function ajustar() {
+    var k = Math.min(window.innerWidth / 1280, window.innerHeight / 720);
+    stage.style.transform = 'scale(' + k + ')';
+  }
+  function ir(n, atualizaHash) {
+    n = Math.max(0, Math.min(slides.length - 1, n));
+    slides.forEach(function (s, i) {
+      s.classList.toggle('ativo', i === n);
+      s.classList.toggle('saiu', i < n);
+    });
+    atual = n;
+    barra.style.width = ((n + 1) / slides.length * 100) + '%';
+    contador.textContent = (n + 1) + ' / ' + slides.length;
+    document.body.classList.toggle('escuro-ativo', slides[n].hasAttribute('data-escuro'));
+    if (atualizaHash !== false) { try { history.replaceState(null, '', '#' + (n + 1)); } catch (e) {} }
+  }
+  function tela() {
+    if (document.fullscreenElement) { document.exitFullscreen(); }
+    else if (document.documentElement.requestFullscreen) { document.documentElement.requestFullscreen(); }
+  }
+  document.addEventListener('keydown', function (e) {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    var k = e.key;
+    if (k === 'ArrowRight' || k === 'PageDown' || k === ' ' || k === 'Enter') { e.preventDefault(); ir(atual + 1); }
+    else if (k === 'ArrowLeft' || k === 'PageUp' || k === 'Backspace') { e.preventDefault(); ir(atual - 1); }
+    else if (k === 'Home') { ir(0); } else if (k === 'End') { ir(slides.length - 1); }
+    else if (k === 'f' || k === 'F') { tela(); }
+    else if (k === 'p' || k === 'P') { window.print(); }
+  });
+  document.getElementById('ant').onclick = function () { ir(atual - 1); };
+  document.getElementById('prox').onclick = function () { ir(atual + 1); };
+  document.getElementById('tela').onclick = tela;
+  stage.addEventListener('click', function (e) {
+    var x = e.clientX / window.innerWidth;
+    ir(x < 0.25 ? atual - 1 : atual + 1);
+  });
+  var x0 = null;
+  document.addEventListener('touchstart', function (e) { x0 = e.touches[0].clientX; }, { passive: true });
+  document.addEventListener('touchend', function (e) {
+    if (x0 === null) return;
+    var dx = e.changedTouches[0].clientX - x0;
+    if (Math.abs(dx) > 50) ir(atual + (dx < 0 ? 1 : -1));
+    x0 = null;
+  }, { passive: true });
+  window.addEventListener('resize', ajustar);
+  window.addEventListener('hashchange', function () { var n = parseInt(location.hash.slice(1), 10); if (n) ir(n - 1, false); });
+  ajustar();
+  ir((parseInt(location.hash.slice(1), 10) || 1) - 1, false);
+})();
+</script>
+</body>
+</html>

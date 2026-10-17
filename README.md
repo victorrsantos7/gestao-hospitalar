@@ -13,6 +13,7 @@ atendimentos, diagnósticos, internações, leitos e transferências.
 - [openspec/specs/](openspec/specs) — comportamento consolidado do sistema.
 - [openspec/changes/](openspec/changes) — mudanças em andamento e histórico.
 - [docs/publicacao-reflex-cloud.md](docs/publicacao-reflex-cloud.md) — como publicar numa URL pública no Reflex Cloud para testadores externos (dados fictícios).
+- [docs/apresentacao/index.html](docs/apresentacao/index.html) — apresentação do sistema (abrir no navegador; setas navegam, F tela cheia, P imprime em PDF). Capturas com dados fictícios.
 
 ## Ambiente de desenvolvimento
 

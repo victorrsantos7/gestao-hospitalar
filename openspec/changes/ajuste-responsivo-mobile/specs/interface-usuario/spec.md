@@ -28,7 +28,7 @@ espremer o título.
 #### Scenario: Tela de login em celular
 
 - **WHEN** a largura da tela é de até 480 px
-- **THEN** o texto do painel de login (logo, título e frase) é exibido em fluxo normal, sem cortar o topo, e os destaques secundários ficam ocultos para caber sem rolagem até o botão de entrar
+- **THEN** o painel ilustrado do login fica oculto e só o formulário (com a marca compacta no topo) é exibido, cabendo sem rolagem até o botão de entrar mesmo em aparelhos com viewport efetivo reduzido
 
 #### Scenario: Cabeçalho de cartão em tela estreita
 

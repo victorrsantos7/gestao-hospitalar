@@ -42,7 +42,6 @@ def _painel() -> rx.Component:
                 spacing="3",
                 align="start",
                 margin_top="12px",
-                class_name="gh-login-destaques",
             ),
             spacing="3",
             align="start",

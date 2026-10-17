@@ -14,4 +14,4 @@
 
 - [x] 3.1 Executar `python -m unittest discover -s tests -p "test_*.py"` e `reflex compile --dry`.
 - [x] 3.2 Primeiro deploy (login, painel, ajuda, gráficos, CORS efetivo confirmados pelo usuário em https://gestao-hospitalar-neon-apple.reflex.run) e guia ajustado com o que o ambiente real mostrou.
-- [ ] 3.3 `revisao-tecnica` e pacote de entrega.
+- [x] 3.3 `revisao-tecnica` e pacote de entrega.

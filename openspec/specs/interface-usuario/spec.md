@@ -166,7 +166,9 @@ formulário de atendimentos completos independentemente da página exibida.
 
 O sistema MUST adaptar menu, formulários e listas à largura disponível, sem
 exigir rolagem horizontal nas tabelas de cadastro e sem desperdiçar a área útil
-em monitores pequenos ou grandes.
+em monitores pequenos ou grandes. Em telas de celular (até 480 px) o painel de
+login e os cabeçalhos de cartão MUST exibir o conteúdo sem cortar texto nem
+espremer o título.
 
 #### Scenario: Tela de laptop
 
@@ -182,6 +184,16 @@ em monitores pequenos ou grandes.
 
 - **WHEN** a largura da tela é de 1920 px ou mais
 - **THEN** o conteúdo usa uma largura máxima maior que a de telas médias, e a partir de 2400 px a interface é ampliada em 10%
+
+#### Scenario: Tela de login em celular
+
+- **WHEN** a largura da tela é de até 480 px
+- **THEN** o painel de login vira uma faixa fina com o logo e o nome do sistema (sem título, frase nem destaques), sem duplicar a marca no formulário, cabendo sem rolagem até o botão de entrar mesmo em aparelhos com viewport efetivo reduzido
+
+#### Scenario: Cabeçalho de cartão em tela estreita
+
+- **WHEN** um cabeçalho de cartão tem título e uma ação larga (ex.: seletor de período) que não cabem lado a lado
+- **THEN** a ação desce para a linha de baixo, em vez de espremer o título
 
 ### Requirement: Ocupação de leitos no painel
 
@@ -247,3 +259,65 @@ bloquear a navegação.
 
 - **WHEN** a leitura dos atendimentos demora
 - **THEN** os indicadores aparecem primeiro, o gráfico mostra esqueleto e o usuário pode abrir outra página imediatamente
+
+### Requirement: Nova tentativa após falha de leitura
+
+Quando a leitura inicial de uma tela falhar por indisponibilidade do Xano, a
+interface MUST exibir o aviso de erro com a ação "Tentar novamente", que repete
+a leitura da tela atual com indicador de carregamento, mantendo na tela os
+últimos dados lidos. O aviso MUST NOT oferecer a ação depois que uma nova
+leitura de página começar.
+
+#### Scenario: Falha ao carregar uma lista
+
+- **WHEN** a leitura de pacientes falha por indisponibilidade
+- **THEN** o aviso mostra a mensagem e o botão "Tentar novamente"
+
+#### Scenario: Repetir a leitura
+
+- **WHEN** a pessoa aciona "Tentar novamente"
+- **THEN** a leitura da tela atual é repetida e o botão mostra carregamento até o fim
+
+#### Scenario: Erro de escrita
+
+- **WHEN** o cadastro de um registro falha
+- **THEN** o aviso é exibido sem a ação de repetir a leitura
+
+### Requirement: Sessão expirada leva ao login
+
+Quando o Xano recusar o token da sessão durante uma leitura, a interface MUST
+avisar que a sessão expirou e encerrar a sessão, levando a pessoa ao login, em
+vez de mostrar a mensagem genérica de falha.
+
+#### Scenario: Token recusado ao abrir uma tela
+
+- **WHEN** a leitura inicial de uma tela recebe 401 do Xano
+- **THEN** aparece o aviso "Sua sessão expirou. Entre novamente." e a pessoa é levada ao login
+
+### Requirement: Ajuda de uso em modal
+
+O painel MUST oferecer um botão flutuante que abre, sem sair da página, um modal
+com instruções de uso organizadas por módulo. O modal MUST listar apenas os
+módulos que o perfil da pessoa pode acessar, além dos tópicos gerais (primeiros
+passos, perfis e acessos, problemas comuns), e MUST poder ser fechado pelo botão
+de fechar, pela tecla Esc ou clicando fora.
+
+#### Scenario: Abrir a ajuda
+
+- **WHEN** a pessoa aciona o botão de ajuda no painel
+- **THEN** o modal abre no tópico "Primeiros passos" e a página continua a mesma
+
+#### Scenario: Ajuda por perfil
+
+- **WHEN** um usuário com perfil médico abre a ajuda
+- **THEN** aparecem Pacientes e Atendimentos e diagnósticos, e não aparecem Internações e leitos nem Convênios
+
+#### Scenario: Trocar de módulo
+
+- **WHEN** a pessoa escolhe outro módulo na lista
+- **THEN** o conteúdo à direita mostra as instruções desse módulo
+
+#### Scenario: Tela estreita
+
+- **WHEN** a largura da janela é menor que 640 px
+- **THEN** a lista de módulos aparece como faixa rolável acima do conteúdo

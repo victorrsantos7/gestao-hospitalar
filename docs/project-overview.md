@@ -63,6 +63,9 @@ consultas, integração com sistemas externos e emissão de documentos legais.
 - **Registro de transferências**: movimentação do paciente com data e motivo.
 - **Histórico do paciente**: linha do tempo de atendimentos, diagnósticos,
   internações e transferências.
+- **Ajuda contextual**: modal de ajuda por módulo, acessível por um botão
+  flutuante no painel, com conteúdo filtrado pelo papel de quem usa o
+  sistema.
 
 ## 7. Requisitos e restrições importantes
 
@@ -82,6 +85,10 @@ consultas, integração com sistemas externos e emissão de documentos legais.
   fallback de persistência.
 - **Padrão**: organização por `State` (`rx.State`) e `Components` do
   Reflex, substituindo o padrão MVC tradicional.
+- **Publicação**: além da operação local, o sistema pode ser publicado numa
+  URL pública HTTPS via Reflex Cloud para testadores externos, com origens
+  CORS e destino dos logs configuráveis por ambiente (ver
+  `docs/publicacao-reflex-cloud.md`).
 
 ## 9. Princípios de desenvolvimento
 
@@ -120,4 +127,10 @@ O login e todos os fluxos de domínio usam APIs protegidas do Xano. A
 autenticação remota devolve apenas o identificador, o papel e o token da
 sessão; a senha permanece sob responsabilidade do recurso de autenticação do
 Xano. O cliente HTTP não possui fallback local e não repete automaticamente
-escritas cujo resultado seja desconhecido.
+escritas cujo resultado seja desconhecido. Leituras (GET) são repetidas
+automaticamente em falhas transitórias — limite de requisições (429),
+indisponibilidade temporária (502/503/504) ou erro de conexão —, com número
+máximo de tentativas configurável e respeito ao `Retry-After`; a interface
+oferece "Tentar novamente" quando mesmo assim a leitura falhar. Uma sessão
+recusada pelo Xano (401) é distinguida de indisponibilidade e leva a pessoa
+de volta ao login.

@@ -493,3 +493,70 @@ body {
     transition: none !important;
   }
 }
+
+/* ---- Ajuda de uso: FAB + modal ------------------------------------------- */
+.radix-themes .gh-fab {
+  position: fixed;
+  right: 20px;
+  /* acima do selo "Built with Reflex" do modo produção, que ocupa o canto */
+  bottom: 64px;
+  z-index: 30;
+  width: 48px;
+  height: 48px;
+  background: var(--accent-9);
+  color: #fff;
+  box-shadow: var(--gh-shadow-md);
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+.radix-themes .gh-fab:hover { background: var(--accent-10); transform: translateY(-2px); }
+.radix-themes .gh-fab:focus-visible { outline: 2px solid var(--accent-8); outline-offset: 3px; }
+
+.gh-ajuda-dialogo { padding: 14px 18px 16px; }
+.gh-ajuda-cabecalho { padding-bottom: 12px; border-bottom: 1px solid var(--gh-border); }
+/* O Reflex aplica size-5 e size-3 ao título e à descrição do diálogo e ignora `size`: o CSS corrige. */
+.gh-ajuda-cabecalho h1.rt-Heading { font-size: 16px; line-height: 1.25; letter-spacing: -0.01em; margin: 0; }
+.gh-ajuda-cabecalho p.rt-Text { font-size: 12.5px; line-height: 1.3; margin: 0; }
+.gh-ajuda-corpo {
+  display: grid;
+  grid-template-columns: 210px minmax(0, 1fr);
+  gap: 16px;
+  margin-top: 14px;
+  height: min(520px, calc(100vh - 150px));
+}
+.gh-ajuda-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow-y: auto;
+  padding-right: 8px;
+  border-right: 1px solid var(--gh-border);
+}
+.gh-ajuda-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--gh-text);
+  text-align: left;
+  cursor: pointer;
+  font-family: inherit;
+}
+.gh-ajuda-item:hover { background: var(--accent-a3); }
+.gh-ajuda-item:focus-visible { outline: 2px solid var(--accent-8); outline-offset: -2px; }
+.gh-ajuda-item--ativo { background: var(--accent-a4); color: var(--accent-11); }
+.gh-ajuda-item svg { flex-shrink: 0; color: var(--accent-10); }
+.gh-ajuda-conteudo { overflow-y: auto; padding-right: 4px; }
+.gh-ajuda-rotulo { letter-spacing: 0.06em; color: var(--accent-11); }
+.gh-ajuda-lista { margin: 0; padding-left: 20px; list-style: decimal; display: grid; gap: 6px; font-size: 14px; line-height: 1.45; color: var(--gh-text); }
+.gh-ajuda-lista--dicas { list-style: disc; color: var(--gh-muted); }
+
+@media (max-width: 640px) {
+  .gh-ajuda-corpo { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); height: calc(100vh - 150px); }
+  .gh-ajuda-nav { flex-direction: row; overflow-x: auto; overflow-y: hidden; border-right: 0; border-bottom: 1px solid var(--gh-border); padding: 0 0 8px; }
+  .gh-ajuda-item { width: auto; white-space: nowrap; flex-shrink: 0; }
+  .radix-themes .gh-fab { right: 14px; bottom: 60px; }
+}

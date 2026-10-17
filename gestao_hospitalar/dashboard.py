@@ -4,6 +4,7 @@ import reflex as rx
 
 from gestao_hospitalar.auth_state import AuthState
 from gestao_hospitalar.painel import PERIODOS
+from gestao_hospitalar.ui.ajuda import fab_ajuda, modal_ajuda
 from gestao_hospitalar.ui.componentes import (
     acoes_tela,
     badge_status,
@@ -420,4 +421,6 @@ def dashboard() -> rx.Component:
         _indicadores(),
         _analise(),
         _base(),
+        modal_ajuda(),
+        fab_ajuda(),
     )

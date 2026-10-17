@@ -128,6 +128,10 @@ Convenções para novas telas:
   Falhas de leitura registram-se com `_registrar_falha`: sessão recusada (401) leva ao
   login via `verificar_sessao` (disparado por `encerrar_acao`) e os demais erros
   mostram o botão **Tentar novamente** (`tentar_novamente`).
+- A ajuda de uso (botão flutuante no painel, modal) vem de `ajuda.py`: um tópico por
+  módulo, ligado à mesma variável `pode_ver_*` do menu. Ao criar um módulo novo,
+  acrescente o tópico e confira os rótulos de botão citados no texto (os testes de
+  `test_ajuda.py` cobram os dois: módulo do menu e rótulos existentes na tela).
 ## Desenvolvimento
 
 Mudanças são conduzidas via OpenSpec, seguindo o ciclo Explore → Propose →

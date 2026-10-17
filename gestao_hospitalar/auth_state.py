@@ -8,6 +8,7 @@ from typing import Any
 
 import reflex as rx
 
+from gestao_hospitalar.ajuda import TOPICO_INICIAL, topico_por_id
 from gestao_hospitalar.authorization import (
     RECURSO_CADASTRO_PACIENTES,
     RECURSO_CONVENIOS,
@@ -360,6 +361,8 @@ class AuthState(rx.State):
 
     acao_em_andamento: str = ""
     termo_busca: str = ""
+    ajuda_aberta: bool = False
+    ajuda_topico: str = TOPICO_INICIAL
     # Última leitura falhou (mostra "Tentar novamente"); sessão recusada pelo Xano.
     leitura_falhou: bool = False
     _sessao_expirada: bool = False
@@ -723,6 +726,22 @@ class AuthState(rx.State):
         for campo in campos:
             if campo is not None:
                 setattr(self, campo, "")
+
+    @rx.event
+    def abrir_ajuda(self):
+        """Abre o modal de ajuda no tópico inicial."""
+        self.ajuda_topico = TOPICO_INICIAL
+        self.ajuda_aberta = True
+
+    @rx.event
+    def set_ajuda_aberta(self, aberta: bool):
+        self.ajuda_aberta = bool(aberta)
+
+    @rx.event
+    def selecionar_ajuda(self, topico: str):
+        """Troca o módulo exibido; ignora ids desconhecidos."""
+        if topico_por_id(topico) is not None:
+            self.ajuda_topico = topico
 
     @rx.event
     def encerrar_acao(self):
@@ -1314,6 +1333,8 @@ class AuthState(rx.State):
         self.painel_periodo = "30"
         self.leitura_falhou = False
         self._sessao_expirada = False
+        self.ajuda_aberta = False
+        self.ajuda_topico = TOPICO_INICIAL
         self._invalidar_graficos()
         return rx.redirect("/")
 

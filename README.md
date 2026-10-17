@@ -12,6 +12,7 @@ atendimentos, diagnósticos, internações, leitos e transferências.
 - [openspec/config.yaml](openspec/config.yaml) — contexto e regras dos workflows do OpenSpec.
 - [openspec/specs/](openspec/specs) — comportamento consolidado do sistema.
 - [openspec/changes/](openspec/changes) — mudanças em andamento e histórico.
+- [docs/publicacao-reflex-cloud.md](docs/publicacao-reflex-cloud.md) — como publicar numa URL pública no Reflex Cloud para testadores externos (dados fictícios).
 
 ## Ambiente de desenvolvimento
 
@@ -43,6 +44,8 @@ Variáveis utilizadas:
 - `XANO_TIMEOUT_SECONDS` — opcional; padrão de 10 segundos.
 - `XANO_MAX_TENTATIVAS` — opcional; tentativas por leitura (1 a 5, padrão 3) em caso de limite de requisições (429), indisponibilidade ou falha de conexão. Escritas nunca são repetidas.
 - `XANO_LIMITE_REQUISICOES` e `XANO_JANELA_SEGUNDOS` — opcionais; máximo de requisições por janela (padrão 8 a cada 20 s), abaixo do limite do plano do Xano, para o app esperar a vez em vez de receber 429. `XANO_LIMITE_REQUISICOES=0` desliga o controle.
+- `GESTAO_CORS_ORIGINS` — opcional; origens permitidas pelo backend, separadas por vírgula (ou `*`). Sem valor, só as portas locais; na nuvem, o endereço do app.
+- `GESTAO_LOG_FILE` — opcional; padrão `logs/gestao_hospitalar.log`. O valor `-` manda os logs para a saída padrão (sem permissão de escrita no caminho indicado, o app também cai para a saída padrão).
 
 ### Logs de comunicação
 

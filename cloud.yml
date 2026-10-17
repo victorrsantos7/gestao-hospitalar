@@ -1,0 +1,7 @@
+# Publicação no Reflex Cloud (ver docs/publicacao-reflex-cloud.md).
+# ATENÇÃO: sem esta linha o padrão do Reflex seria ".env", que guarda credenciais
+# locais de teste. Só o .env.cloud (sem segredos) deve ir para a nuvem.
+name: gestao-hospitalar
+description: 'Sistema de Gestão Hospitalar (dados fictícios)'
+envfile: .env.cloud
+# regions: escolher região (ex.: gru, São Paulo) exige plano Pro; sem isso vale o padrão.

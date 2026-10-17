@@ -13,5 +13,5 @@
 ## 3. Validação final
 
 - [x] 3.1 Executar `python -m unittest discover -s tests -p "test_*.py"` e `reflex compile --dry`.
-- [ ] 3.2 Primeiro deploy numa máquina pessoal (login, painel, ajuda, gráficos, CORS efetivo) e ajustar o guia com o que o ambiente real mostrar.
+- [x] 3.2 Primeiro deploy (login, painel, ajuda, gráficos, CORS efetivo confirmados pelo usuário em https://gestao-hospitalar-neon-apple.reflex.run) e guia ajustado com o que o ambiente real mostrou.
 - [ ] 3.3 `revisao-tecnica` e pacote de entrega.

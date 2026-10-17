@@ -63,7 +63,21 @@ de uma máquina pessoal, não da máquina corporativa.
 
 ## Atualizar, acompanhar e remover
 
-- Atualizar: rode o mesmo `reflex deploy` depois de atualizar o código.
+- **Atualizar (deploy já existente, já logado):** basta rodar de novo, de dentro
+  do projeto:
+
+  ```powershell
+  .\.venv\Scripts\python.exe -m reflex deploy --envfile .env.cloud --exclude-from-backend .env
+  ```
+
+  Não é preciso logar de novo nem recriar o `.env.cloud` — a CLI reconhece o
+  app pelo `cloud.yml` e pelo projeto já selecionado (`reflex cloud project
+  selected`). Só repita o login se aparecer erro de token expirado/projeto não
+  encontrado, ou atualize `GESTAO_CORS_ORIGINS`/outros valores e rode
+  `reflex cloud secrets update <APP_ID> --envfile .env.cloud --reboot` quando
+  só as variáveis mudarem (sem mudar código).
+- Acompanhar um deploy em andamento:
+  `reflex cloud apps status <ID_MOSTRADO_NO_DEPLOY> --watch`.
 - Listar, ver logs e remover apps: `reflex cloud apps --help` (ou o painel web do
   Reflex Cloud).
 - Revisão de segurança do código: `reflex cloud scan` (opcional).

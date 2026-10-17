@@ -239,7 +239,8 @@ def secao(titulo: str, icone_nome: str, *filhos, descricao: str = "", acao: rx.C
         cabecalho.extend([rx.spacer(), acao])
     return rx.card(
         rx.vstack(
-            rx.hstack(*cabecalho, spacing="3", align="center", width="100%"),
+            # wrap: ações largas (ex.: seletor de período) descem em telas estreitas
+            rx.hstack(*cabecalho, spacing="3", align="center", width="100%", wrap="wrap"),
             *filhos,
             spacing="3",
             width="100%",

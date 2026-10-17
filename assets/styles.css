@@ -487,6 +487,18 @@ body {
   .gh-login-painel-texto { left: 24px; right: 24px; bottom: 24px; }
 }
 
+@media (max-width: 480px) {
+  /* Abaixo de 480px o texto ancorado pelo rodapé (bottom) ultrapassava o topo
+     da faixa e era cortado pelo overflow:hidden. Aqui ele volta ao fluxo
+     normal, com altura livre, e os destaques somem para caber sem corte. */
+  .gh-login-painel { min-height: 0; }
+  .gh-login-painel-texto {
+    position: static;
+    padding: 24px 20px;
+  }
+  .gh-login-destaques { display: none; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation: none !important;

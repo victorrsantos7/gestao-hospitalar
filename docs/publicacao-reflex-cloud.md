@@ -11,7 +11,11 @@ de uma máquina pessoal, não da máquina corporativa.
   acesso restrito a usuários e domínio próprio exigem o plano Pro. Confira os
   planos em <https://reflex.dev/pricing/>, que podem mudar.
 - Projeto com o `.venv` criado (`reflex` e `reflex-hosting-cli` já estão no
-  `requirements.txt`).
+  `requirements.txt`). A CLI de nuvem **recusa-se a rodar** quando existe versão
+  mais recente no PyPI — ela encerra com erro em vez de só avisar. Se aparecer
+  `Warning: You are using reflex-hosting-cli version X...`, rode
+  `pip install --upgrade reflex-hosting-cli` e fixe a nova versão no
+  `requirements.txt` antes de continuar.
 - Contas dedicadas de teste no Xano (uma por papel) e nenhum dado real.
 
 ## Passo a passo
@@ -36,6 +40,13 @@ de uma máquina pessoal, não da máquina corporativa.
    .\.venv\Scripts\python.exe -m reflex login
    .\.venv\Scripts\python.exe -m reflex deploy --envfile .env.cloud --exclude-from-backend .env
    ```
+
+   O `reflex login` é interativo: ele abre o navegador e **espera você teclar
+   `Enter` no terminal** depois de autenticar. Cada execução gera um
+   `request_id` próprio, então use a URL impressa naquela execução — autenticar
+   numa URL de outra tentativa deixa a CLI esperando um token que não vem.
+   Confirme com `reflex cloud whoami`; o token fica em
+   `%LOCALAPPDATA%\reflex\hosting_v1.json` e não deve ser versionado.
 
    Opcional: `--hostname seuapp` (endereço `seuapp.reflex.dev`) e, no plano Pro,
    `--region gru`.

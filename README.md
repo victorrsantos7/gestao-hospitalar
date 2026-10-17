@@ -41,6 +41,8 @@ Variáveis utilizadas:
 - `XANO_API_URL` — obrigatória.
 - `XANO_API_TOKEN` — opcional, somente para grupos protegidos.
 - `XANO_TIMEOUT_SECONDS` — opcional; padrão de 10 segundos.
+- `XANO_MAX_TENTATIVAS` — opcional; tentativas por leitura (1 a 5, padrão 3) em caso de limite de requisições (429), indisponibilidade ou falha de conexão. Escritas nunca são repetidas.
+- `XANO_LIMITE_REQUISICOES` e `XANO_JANELA_SEGUNDOS` — opcionais; máximo de requisições por janela (padrão 8 a cada 20 s), abaixo do limite do plano do Xano, para o app esperar a vez em vez de receber 429. `XANO_LIMITE_REQUISICOES=0` desliga o controle.
 
 ### Logs de comunicação
 
@@ -119,6 +121,13 @@ Convenções para novas telas:
   mudar_pagina e o rodapé paginacao; a busca vale só para a página exibida.
   Seletores de formulário que precisam de todos os registros usam as listas de
   referência (listar_todos_*), nunca a página exibida.
+- Leituras ao Xano são repetidas só em GET (429, 502, 503, 504, conexão), com espera
+  crescente (429 espera mais: `Retry-After` até 30 s ou 2 s, 4 s, 8 s, e abre uma pausa
+  que vale para todas as threads); a conexão é compartilhada, há no máximo 3 requisições
+  simultâneas e um limite por janela (`_Limitador`) que evita estourar a cota do Xano.
+  Falhas de leitura registram-se com `_registrar_falha`: sessão recusada (401) leva ao
+  login via `verificar_sessao` (disparado por `encerrar_acao`) e os demais erros
+  mostram o botão **Tentar novamente** (`tentar_novamente`).
 ## Desenvolvimento
 
 Mudanças são conduzidas via OpenSpec, seguindo o ciclo Explore → Propose →

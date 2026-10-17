@@ -1,4 +1,6 @@
+import re
 import unittest
+from pathlib import Path
 from datetime import date, timedelta
 from unittest.mock import Mock, patch
 
@@ -10,7 +12,7 @@ from gestao_hospitalar.auth_state import (
     paginas_do_total,
     texto_paginacao,
 )
-from gestao_hospitalar.xano_client import XanoError
+from gestao_hospitalar.xano_client import XanoError, XanoSessionExpiredError
 
 
 class AuthStateFeedbackTests(unittest.TestCase):
@@ -871,6 +873,8 @@ class _EstadoFalso:
         self.painel_ev_atendimentos = []
         self.painel_amostra_atendimentos = -1
         self.erro_painel = ""
+        self.leitura_falhou = False
+        self._sessao_expirada = False
 
     async def __aenter__(self):
         return self
@@ -879,6 +883,7 @@ class _EstadoFalso:
         return None
 
     _aplicar_graficos = AuthState._aplicar_graficos
+    _registrar_falha = AuthState._registrar_falha
 
 
 class CarregarGraficosSegundoPlanoTests(unittest.IsolatedAsyncioTestCase):
@@ -917,6 +922,29 @@ class CarregarGraficosSegundoPlanoTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(estado.painel_graficos_carregando)
         self.assertFalse(estado.painel_graficos_carregado)
         self.assertIn("gráficos", estado.erro_painel)
+
+    async def test_falha_de_leitura_marca_para_tentar_novamente(self) -> None:
+        estado = _EstadoFalso()
+
+        await self._executar(estado, self._cliente(side_effect=XanoError("falha")))
+
+        self.assertTrue(estado.leitura_falhou)
+        self.assertFalse(estado._sessao_expirada)
+
+    async def test_sessao_expirada_pede_verificacao_de_sessao(self) -> None:
+        estado = _EstadoFalso()
+        cliente = self._cliente(side_effect=XanoSessionExpiredError("expirou"))
+
+        with patch(
+            "gestao_hospitalar.auth_state.XanoClient", return_value=cliente
+        ), patch(
+            "gestao_hospitalar.auth_state.XanoConfig.from_env", return_value=Mock()
+        ):
+            resultado = await AuthState.carregar_graficos.fn(estado, False)
+
+        self.assertTrue(estado._sessao_expirada)
+        self.assertFalse(estado.leitura_falhou)
+        self.assertIsNotNone(resultado)
 
     async def test_erro_inesperado_nao_deixa_o_indicador_preso(self) -> None:
         estado = _EstadoFalso()
@@ -1013,6 +1041,98 @@ class CarregarGraficosSegundoPlanoTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertFalse(estado.painel_graficos_carregado)
         self.assertFalse(estado.painel_graficos_carregando)
+
+
+class _EstadoLeitura:
+    """Estado mínimo para os eventos de falha de leitura e sessão expirada."""
+
+    def __init__(self, pagina: str = "/pacientes") -> None:
+        self.leitura_falhou = False
+        self._sessao_expirada = False
+        self.acao_em_andamento = ""
+        self.usuario_id = 7
+        self.router = Mock()
+        self.router.url.path = pagina
+
+    _registrar_falha = AuthState._registrar_falha
+
+
+class FalhaDeLeituraTests(unittest.TestCase):
+    def test_registrar_falha_distingue_leitura_escrita_e_sessao(self) -> None:
+        leitura = _EstadoLeitura()
+        leitura._registrar_falha(XanoError("x"))
+        self.assertTrue(leitura.leitura_falhou)
+
+        escrita = _EstadoLeitura()
+        escrita._registrar_falha(XanoError("x"), leitura=False)
+        self.assertFalse(escrita.leitura_falhou)
+
+        sessao = _EstadoLeitura()
+        sessao._registrar_falha(XanoSessionExpiredError("x"))
+        self.assertTrue(sessao._sessao_expirada)
+        self.assertFalse(sessao.leitura_falhou)
+
+    def test_verificar_sessao_sem_expiracao_nao_faz_nada(self) -> None:
+        self.assertIsNone(AuthState.verificar_sessao.fn(_EstadoLeitura()))
+
+    def test_verificar_sessao_expirada_avisa_e_encerra_a_sessao(self) -> None:
+        estado = _EstadoLeitura()
+        estado._sessao_expirada = True
+
+        eventos = AuthState.verificar_sessao.fn(estado)
+
+        self.assertFalse(estado._sessao_expirada)
+        self.assertEqual(len(eventos), 2)
+
+    def test_tentar_novamente_repete_a_leitura_da_tela_atual(self) -> None:
+        for pagina in ("/pacientes", "/dashboard", "/relatorios", "/medicos/"):
+            with self.subTest(pagina=pagina):
+                eventos = AuthState.tentar_novamente.fn(_EstadoLeitura(pagina))
+                self.assertEqual(len(eventos), 3)
+
+    def test_tentar_novamente_ignora_tela_sem_leitura(self) -> None:
+        self.assertIsNone(AuthState.tentar_novamente.fn(_EstadoLeitura("/")))
+
+    def test_qualquer_nova_acao_limpa_a_marca_de_falha(self) -> None:
+        for chave in ("carregando", "salvar"):
+            with self.subTest(chave=chave):
+                estado = _EstadoLeitura()
+                estado.leitura_falhou = True
+
+                AuthState.iniciar_acao.fn(estado, chave)
+
+                self.assertFalse(estado.leitura_falhou)
+                self.assertEqual(estado.acao_em_andamento, chave)
+
+    def test_encerrar_acao_confere_a_sessao_so_quando_expirada(self) -> None:
+        normal = _EstadoLeitura()
+        normal.acao_em_andamento = "salvar"
+        self.assertIsNone(AuthState.encerrar_acao.fn(normal))
+        self.assertEqual(normal.acao_em_andamento, "")
+
+        expirada = _EstadoLeitura()
+        expirada._sessao_expirada = True
+        self.assertIsNotNone(AuthState.encerrar_acao.fn(expirada))
+
+
+class RegistroDeFalhaCoerenteTests(unittest.TestCase):
+    """Garante que cada bloco de erro declara se a falha é de leitura ou de escrita."""
+
+    def test_leitura_so_para_mensagens_de_carregar(self) -> None:
+        codigo = (
+            Path(__file__).resolve().parent.parent / "gestao_hospitalar" / "auth_state.py"
+        ).read_text(encoding="utf-8")
+        blocos = re.findall(
+            r"except XanoError as error:\n\s+self\._registrar_falha\(error(, leitura=False)?\)\n"
+            r"(?:\s+logger[^\n]*\n(?:\s{12,}[^\n]*\n)*)?"
+            r"\s+self\.erro_\w+ = \"([^\"]*)\"",
+            codigo,
+        )
+
+        self.assertGreaterEqual(len(blocos), 20)
+        for escrita, mensagem in blocos:
+            with self.subTest(mensagem=mensagem):
+                self.assertEqual(bool(escrita), "carregar" not in mensagem)
 
 
 if __name__ == "__main__":

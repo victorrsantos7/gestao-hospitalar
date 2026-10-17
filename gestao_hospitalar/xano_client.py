@@ -2,7 +2,9 @@
 
 from dataclasses import dataclass
 import os
+import threading
 import time
+from collections import deque
 from typing import Any
 from urllib.parse import urlparse
 
@@ -34,6 +36,10 @@ class XanoResponseError(XanoError):
     """Resposta do Xano ausente ou em formato inesperado."""
 
 
+class XanoSessionExpiredError(XanoAuthenticationError):
+    """Token da sessao recusado (401): o usuario precisa entrar de novo."""
+
+
 class XanoValidationError(XanoError):
     """Entrada rejeitada pela API do Xano."""
 
@@ -45,6 +51,10 @@ class XanoConfig:
     base_url: str
     api_token: str | None
     timeout_seconds: float
+    max_tentativas: int = 3
+    # Limite do plano do Xano por janela de tempo (0 desliga o controle local).
+    limite_requisicoes: int = 0
+    janela_segundos: float = 20.0
 
     @classmethod
     def from_env(cls) -> "XanoConfig":
@@ -68,8 +78,43 @@ class XanoConfig:
                 "XANO_TIMEOUT_SECONDS deve ser maior que zero."
             )
 
+        tentativas_texto = os.getenv("XANO_MAX_TENTATIVAS", "3").strip()
+        try:
+            max_tentativas = int(tentativas_texto)
+        except ValueError as error:
+            raise XanoConfigurationError("XANO_MAX_TENTATIVAS invalido.") from error
+        if not 1 <= max_tentativas <= 5:
+            raise XanoConfigurationError(
+                "XANO_MAX_TENTATIVAS deve estar entre 1 e 5."
+            )
+
+        limite_texto = os.getenv("XANO_LIMITE_REQUISICOES", "8").strip()
+        janela_texto = os.getenv("XANO_JANELA_SEGUNDOS", "20").strip()
+        try:
+            limite_requisicoes = int(limite_texto)
+            janela_segundos = float(janela_texto)
+        except ValueError as error:
+            raise XanoConfigurationError(
+                "XANO_LIMITE_REQUISICOES ou XANO_JANELA_SEGUNDOS invalido."
+            ) from error
+        if not 0 <= limite_requisicoes <= 100:
+            raise XanoConfigurationError(
+                "XANO_LIMITE_REQUISICOES deve estar entre 0 e 100."
+            )
+        if not 1 <= janela_segundos <= 120:
+            raise XanoConfigurationError(
+                "XANO_JANELA_SEGUNDOS deve estar entre 1 e 120."
+            )
+
         api_token = os.getenv("XANO_API_TOKEN", "").strip() or None
-        return cls(base_url, api_token, timeout_seconds)
+        return cls(
+            base_url,
+            api_token,
+            timeout_seconds,
+            max_tentativas,
+            limite_requisicoes,
+            janela_segundos,
+        )
 
 
 @dataclass(frozen=True)
@@ -79,6 +124,102 @@ class UsuarioRemoto:
     usuario_id: int
     papel: str
     auth_token: str
+
+
+# Leituras repetidas apenas para GET (idempotente); escritas nunca se repetem.
+STATUS_REPETIVEIS = {429, 502, 503, 504}
+ESPERA_BASE_SEGUNDOS = 0.5
+ESPERA_MAXIMA_SEGUNDOS = 5.0
+# O 429 do Xano vem de uma janela de tempo: esperar pouco só gasta a cota de novo.
+ESPERA_BASE_429_SEGUNDOS = 2.0
+ESPERA_MAXIMA_429_SEGUNDOS = 30.0
+TIMEOUT_CONEXAO_SEGUNDOS = 5.0
+# O Xano limita requisicoes por janela de tempo (429); poucas em paralelo
+# evitam as rajadas do painel, que le varios recursos de uma vez.
+_LIMITE_CONCORRENCIA = threading.BoundedSemaphore(3)
+
+# Uma conexao (e um TLS) reaproveitada entre as leituras, por endereco e timeout.
+_CLIENTES_HTTP: dict[tuple[str, float], httpx.Client] = {}
+_TRAVA_CLIENTES = threading.Lock()
+
+
+def _dormir(segundos: float) -> None:
+    time.sleep(segundos)
+
+
+class _Limitador:
+    """Janela deslizante de requisições, compartilhada por todas as threads.
+
+    Cada requisição reserva a sua vez (sem laço de espera): o instante de envio
+    respeita o limite por janela e uma pausa coordenada, aberta quando o Xano
+    devolve 429, para que as demais threads também esperem em vez de insistir.
+    """
+
+    def __init__(self) -> None:
+        self._trava = threading.Lock()
+        self._envios: deque[float] = deque()
+        self._pausa_ate = 0.0
+
+    def esperar_vez(self, limite: int, janela: float, pausa: float = 0.0) -> None:
+        with self._trava:
+            agora = time.monotonic()
+            meu_fim = 0.0
+            if pausa > 0:
+                meu_fim = agora + pausa
+                self._pausa_ate = max(self._pausa_ate, meu_fim)
+            espera = pausa if pausa > 0 else max(0.0, self._pausa_ate - agora)
+            if limite > 0:
+                while self._envios and self._envios[0] + janela <= agora:
+                    self._envios.popleft()
+                if len(self._envios) >= limite:
+                    espera = max(espera, self._envios[-limite] + janela - agora)
+                envio = max(agora + espera, self._envios[-1] if self._envios else 0.0)
+                espera = envio - agora
+                self._envios.append(envio)
+        if espera > 0:
+            _dormir(espera)
+        if meu_fim:
+            with self._trava:
+                # a pausa já foi cumprida por quem a abriu: não repete para a mesma thread
+                if self._pausa_ate == meu_fim:
+                    self._pausa_ate = min(meu_fim, time.monotonic())
+
+
+_LIMITADOR = _Limitador()
+
+
+def _cliente_http(config: XanoConfig) -> httpx.Client:
+    chave = (config.base_url, config.timeout_seconds)
+    with _TRAVA_CLIENTES:
+        cliente = _CLIENTES_HTTP.get(chave)
+        if cliente is None or cliente.is_closed:
+            cliente = httpx.Client(
+                base_url=config.base_url,
+                timeout=httpx.Timeout(
+                    config.timeout_seconds,
+                    connect=min(TIMEOUT_CONEXAO_SEGUNDOS, config.timeout_seconds),
+                ),
+            )
+            _CLIENTES_HTTP[chave] = cliente
+        return cliente
+
+
+def _espera_da_tentativa(tentativa: int, response: httpx.Response | None) -> float:
+    """Espera crescente (0,5 s, 1 s, 2 s...), respeitando o Retry-After do Xano."""
+    limitado = response is not None and response.status_code == 429
+    teto = ESPERA_MAXIMA_429_SEGUNDOS if limitado else ESPERA_MAXIMA_SEGUNDOS
+    if response is not None:
+        try:
+            pedido = float(response.headers.get("Retry-After", ""))
+        except ValueError:
+            pedido = 0.0
+        if pedido > 0:
+            return min(pedido, teto)
+    if limitado:
+        return min(
+            ESPERA_BASE_429_SEGUNDOS * (2 ** (tentativa - 1)), ESPERA_MAXIMA_429_SEGUNDOS
+        )
+    return min(ESPERA_BASE_SEGUNDOS * (2 ** (tentativa - 1)), ESPERA_MAXIMA_SEGUNDOS)
 
 
 POR_PAGINA_PADRAO = 25
@@ -105,6 +246,25 @@ class XanoClient:
             headers["Authorization"] = self.config.api_token
         return headers
 
+    def _enviar(
+        self,
+        method: str,
+        path: str,
+        auth_token: str | None,
+        **kwargs: Any,
+    ) -> httpx.Response:
+        headers = self._headers(auth_token)
+        if self.transport is not None:
+            with httpx.Client(
+                base_url=self.config.base_url,
+                timeout=self.config.timeout_seconds,
+                transport=self.transport,
+            ) as client:
+                return client.request(method, path, headers=headers, **kwargs)
+        return _cliente_http(self.config).request(
+            method, path, headers=headers, **kwargs
+        )
+
     def _request(
         self,
         method: str,
@@ -121,37 +281,78 @@ class XanoClient:
             bool(auth_token or self.config.api_token),
             sorted((kwargs.get("params") or {}).keys()),
         )
-        try:
-            with httpx.Client(
-                base_url=self.config.base_url,
-                headers=self._headers(auth_token),
-                timeout=self.config.timeout_seconds,
-                transport=self.transport,
-            ) as client:
-                response = client.request(method, path, **kwargs)
-                logger.info(
-                    "xano_request_end method=%s path=%s status=%s elapsed_ms=%d",
+        # Só leituras são repetidas: uma escrita sem resposta pode ter sido gravada.
+        limite = self.config.max_tentativas if method.upper() == "GET" else 1
+        tentativa = 0
+        while True:
+            tentativa += 1
+            response = None
+            falha: Exception | None = None
+            _LIMITADOR.esperar_vez(
+                self.config.limite_requisicoes, self.config.janela_segundos
+            )
+            try:
+                with _LIMITE_CONCORRENCIA:
+                    response = self._enviar(method, path, auth_token, **kwargs)
+            except httpx.TimeoutException as error:
+                motivo = "timeout"
+                # Timeout já gastou a espera inteira: repete no máximo uma vez.
+                esgotou = tentativa >= min(limite, 2)
+                falha = error
+            except httpx.RequestError as error:
+                motivo = type(error).__name__
+                esgotou = tentativa >= limite
+                falha = error
+            else:
+                motivo = f"status_{response.status_code}"
+                esgotou = (
+                    response.status_code not in STATUS_REPETIVEIS
+                    or tentativa >= limite
+                )
+
+            if esgotou:
+                if response is not None:
+                    logger.info(
+                        "xano_request_end method=%s path=%s status=%s elapsed_ms=%d attempts=%d",
+                        method,
+                        path,
+                        response.status_code,
+                        int((time.monotonic() - started_at) * 1000),
+                        tentativa,
+                    )
+                    if auth_token and response.status_code == 401:
+                        raise XanoSessionExpiredError("Sessao expirada.")
+                    return response
+                logger.warning(
+                    "xano_request_error method=%s path=%s error=%s attempts=%d",
                     method,
                     path,
-                    response.status_code,
-                    int((time.monotonic() - started_at) * 1000),
+                    motivo,
+                    tentativa,
                 )
-                return response
-        except httpx.TimeoutException as error:
+                raise XanoUnavailableError(
+                    "Xano temporariamente indisponivel."
+                ) from falha
+
+            espera = _espera_da_tentativa(tentativa, response)
             logger.warning(
-                "xano_request_error method=%s path=%s error=timeout",
+                "xano_request_retry method=%s path=%s reason=%s attempt=%d wait_ms=%d retry_after=%s",
                 method,
                 path,
+                motivo,
+                tentativa,
+                int(espera * 1000),
+                response.headers.get("Retry-After", "-") if response is not None else "-",
             )
-            raise XanoUnavailableError("Xano temporariamente indisponivel.") from error
-        except httpx.RequestError as error:
-            logger.warning(
-                "xano_request_error method=%s path=%s error=%s",
-                method,
-                path,
-                type(error).__name__,
-            )
-            raise XanoUnavailableError("Xano temporariamente indisponivel.") from error
+            if response is not None and response.status_code == 429:
+                # pausa coordenada: as outras threads também esperam a janela do Xano
+                _LIMITADOR.esperar_vez(
+                    self.config.limite_requisicoes,
+                    self.config.janela_segundos,
+                    pausa=espera,
+                )
+            else:
+                _dormir(espera)
 
     @staticmethod
     def _raise_for_status(response: httpx.Response) -> None:
@@ -168,6 +369,8 @@ class XanoClient:
                 if isinstance(detalhe, str) and detalhe.strip():
                     mensagem = detalhe.strip()
             raise XanoValidationError(mensagem)
+        if response.status_code == 429 or response.status_code >= 500:
+            raise XanoUnavailableError("Xano temporariamente indisponivel.")
         if response.status_code >= 400:
             raise XanoError("Xano rejeitou a requisicao.")
 

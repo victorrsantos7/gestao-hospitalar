@@ -205,10 +205,23 @@ def mensagem_erro(texto) -> rx.Component:
         rx.callout.root(
             rx.callout.icon(icone("circle_alert", 16)),
             rx.callout.text(texto),
+            rx.cond(
+                AuthState.leitura_falhou,
+                rx.button(
+                    "Tentar novamente",
+                    size="1",
+                    variant="soft",
+                    color_scheme="red",
+                    on_click=AuthState.tentar_novamente,
+                    loading=AuthState.carregando_pagina,
+                    margin_left="auto",
+                ),
+            ),
             color_scheme="red",
             variant="soft",
             role="alert",
             width="100%",
+            align="center",
         ),
     )
 

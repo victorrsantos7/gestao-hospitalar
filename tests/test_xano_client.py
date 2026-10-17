@@ -11,8 +11,13 @@ from gestao_hospitalar.xano_client import (
     XanoConfigurationError,
     XanoClient,
     XanoResponseError,
+    XanoSessionExpiredError,
     XanoUnavailableError,
     XanoValidationError,
+    _CLIENTES_HTTP,
+    _Limitador,
+    _cliente_http,
+    _espera_da_tentativa,
 )
 
 
@@ -823,3 +828,257 @@ class XanoClientContagemTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class XanoClientResilienciaTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.esperas: list[float] = []
+        patcher = patch(
+            "gestao_hospitalar.xano_client._dormir", self.esperas.append
+        )
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    @staticmethod
+    def _cliente(handler, tentativas: int = 3) -> XanoClient:
+        return XanoClient(
+            XanoConfig("https://example.xano.io/api:test", None, 5, tentativas),
+            transport=httpx.MockTransport(handler),
+        )
+
+    def test_leitura_repete_apos_429_e_recupera(self) -> None:
+        chamadas = 0
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            nonlocal chamadas
+            chamadas += 1
+            if chamadas < 3:
+                return httpx.Response(429)
+            return httpx.Response(200, json=[{"id": 1}])
+
+        registros = self._cliente(handler).listar_leitos("token")
+
+        self.assertEqual(registros, [{"id": 1}])
+        self.assertEqual(chamadas, 3)
+        self.assertEqual(self.esperas, [2.0, 4.0])
+
+    def test_retry_after_do_xano_e_respeitado_com_teto(self) -> None:
+        respostas = iter(
+            [
+                httpx.Response(429, headers={"Retry-After": "2"}),
+                httpx.Response(503, headers={"Retry-After": "60"}),
+                httpx.Response(200, json=[]),
+            ]
+        )
+
+        self._cliente(lambda request: next(respostas)).listar_leitos("token")
+
+        self.assertEqual(self.esperas, [2.0, 5.0])
+
+    def test_429_persistente_vira_indisponivel_apos_o_limite(self) -> None:
+        chamadas = 0
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            nonlocal chamadas
+            chamadas += 1
+            return httpx.Response(429)
+
+        with self.assertRaises(XanoUnavailableError):
+            self._cliente(handler, tentativas=3).listar_leitos("token")
+
+        self.assertEqual(chamadas, 3)
+
+    def test_escrita_nao_repete_em_503(self) -> None:
+        chamadas = 0
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            nonlocal chamadas
+            chamadas += 1
+            return httpx.Response(503)
+
+        with self.assertRaises(XanoUnavailableError):
+            self._cliente(handler).criar_leito("token", 3)
+
+        self.assertEqual(chamadas, 1)
+        self.assertEqual(self.esperas, [])
+
+    def test_timeout_em_leitura_repete_no_maximo_uma_vez(self) -> None:
+        chamadas = 0
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            nonlocal chamadas
+            chamadas += 1
+            raise httpx.ReadTimeout("timeout")
+
+        with self.assertRaises(XanoUnavailableError):
+            self._cliente(handler, tentativas=5).listar_leitos("token")
+
+        self.assertEqual(chamadas, 2)
+
+    def test_erro_de_conexao_em_leitura_repete_e_recupera(self) -> None:
+        chamadas = 0
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            nonlocal chamadas
+            chamadas += 1
+            if chamadas == 1:
+                raise httpx.ConnectError("sem rede")
+            return httpx.Response(200, json=[])
+
+        self.assertEqual(self._cliente(handler).listar_leitos("token"), [])
+        self.assertEqual(chamadas, 2)
+
+    def test_status_500_nao_repete_e_vira_indisponivel(self) -> None:
+        chamadas = 0
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            nonlocal chamadas
+            chamadas += 1
+            return httpx.Response(500)
+
+        with self.assertRaises(XanoUnavailableError):
+            self._cliente(handler).listar_leitos("token")
+
+        self.assertEqual(chamadas, 1)
+
+    def test_401_com_token_da_sessao_vira_sessao_expirada(self) -> None:
+        with self.assertRaises(XanoSessionExpiredError):
+            self._cliente(lambda request: httpx.Response(401)).listar_leitos("token")
+
+    def test_login_recusado_nao_e_sessao_expirada(self) -> None:
+        for status in (401, 403):
+            with self.subTest(status=status):
+                with self.assertRaises(XanoAuthenticationError) as contexto:
+                    self._cliente(lambda request: httpx.Response(status)).login(
+                        "admin", "senha"
+                    )
+                self.assertNotIsInstance(
+                    contexto.exception, XanoSessionExpiredError
+                )
+
+    def test_conexao_http_e_reaproveitada_entre_clientes(self) -> None:
+        config = XanoConfig("https://exemplo-reuso.xano.io/api:test", None, 5)
+        chave = (config.base_url, config.timeout_seconds)
+        self.addCleanup(lambda: _CLIENTES_HTTP.pop(chave).close())
+
+        primeiro = _cliente_http(config)
+        segundo = _cliente_http(XanoConfig(config.base_url, "outro", 5))
+
+        self.assertIs(primeiro, segundo)
+
+    def test_config_le_e_valida_max_tentativas(self) -> None:
+        base = {"XANO_API_URL": "https://example.xano.io/api:test"}
+        with patch.dict(os.environ, {**base, "XANO_MAX_TENTATIVAS": "4"}, clear=True):
+            self.assertEqual(XanoConfig.from_env().max_tentativas, 4)
+        with patch.dict(os.environ, base, clear=True):
+            self.assertEqual(XanoConfig.from_env().max_tentativas, 3)
+        for invalido in ("0", "9", "x"):
+            with self.subTest(valor=invalido):
+                with patch.dict(
+                    os.environ, {**base, "XANO_MAX_TENTATIVAS": invalido}, clear=True
+                ):
+                    with self.assertRaises(XanoConfigurationError):
+                        XanoConfig.from_env()
+
+
+class LimitadorDeRequisicoesTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.esperas: list[float] = []
+        self.agora = 100.0
+        for alvo, valor in (
+            ("gestao_hospitalar.xano_client._dormir", self.esperas.append),
+            ("gestao_hospitalar.xano_client.time.monotonic", lambda: self.agora),
+        ):
+            patcher = patch(alvo, valor)
+            patcher.start()
+            self.addCleanup(patcher.stop)
+        self.limitador = _Limitador()
+
+    def test_dentro_do_limite_nao_espera(self) -> None:
+        for _ in range(3):
+            self.limitador.esperar_vez(3, 20.0)
+
+        self.assertEqual(self.esperas, [])
+
+    def test_acima_do_limite_espera_a_janela_passar(self) -> None:
+        for _ in range(2):
+            self.limitador.esperar_vez(2, 20.0)
+        self.agora += 5.0
+
+        self.limitador.esperar_vez(2, 20.0)
+
+        self.assertEqual(self.esperas, [15.0])
+
+    def test_vagas_sao_reservadas_em_sequencia(self) -> None:
+        for _ in range(2):
+            self.limitador.esperar_vez(2, 10.0)
+
+        self.limitador.esperar_vez(2, 10.0)
+        self.limitador.esperar_vez(2, 10.0)
+
+        self.assertEqual(self.esperas, [10.0, 10.0])
+
+    def test_envios_antigos_saem_da_janela(self) -> None:
+        for _ in range(2):
+            self.limitador.esperar_vez(2, 10.0)
+        self.agora += 10.0
+
+        self.limitador.esperar_vez(2, 10.0)
+
+        self.assertEqual(self.esperas, [])
+
+    def test_limite_zero_desliga_o_controle(self) -> None:
+        for _ in range(50):
+            self.limitador.esperar_vez(0, 20.0)
+
+        self.assertEqual(self.esperas, [])
+
+    def test_pausa_aberta_por_uma_thread_vale_para_as_outras(self) -> None:
+        self.limitador._pausa_ate = self.agora + 7.0
+
+        self.limitador.esperar_vez(0, 20.0)
+
+        self.assertEqual(self.esperas, [7.0])
+
+    def test_quem_abre_a_pausa_espera_so_uma_vez(self) -> None:
+        self.limitador.esperar_vez(0, 20.0, pausa=4.0)
+        self.limitador.esperar_vez(0, 20.0)
+
+        self.assertEqual(self.esperas, [4.0])
+
+
+class EsperaDoXanoLimitadoTests(unittest.TestCase):
+    def test_429_respeita_retry_after_ate_30_segundos(self) -> None:
+        self.assertEqual(
+            _espera_da_tentativa(1, httpx.Response(429, headers={"Retry-After": "12"})),
+            12.0,
+        )
+        self.assertEqual(
+            _espera_da_tentativa(1, httpx.Response(429, headers={"Retry-After": "600"})),
+            30.0,
+        )
+
+    def test_429_sem_cabecalho_espera_mais_que_outros_erros(self) -> None:
+        self.assertEqual(_espera_da_tentativa(1, httpx.Response(429)), 2.0)
+        self.assertEqual(_espera_da_tentativa(3, httpx.Response(429)), 8.0)
+        self.assertEqual(_espera_da_tentativa(1, httpx.Response(503)), 0.5)
+
+    def test_config_le_e_valida_o_limite_por_janela(self) -> None:
+        base = {"XANO_API_URL": "https://example.xano.io/api:test"}
+        with patch.dict(os.environ, base, clear=True):
+            config = XanoConfig.from_env()
+            self.assertEqual((config.limite_requisicoes, config.janela_segundos), (8, 20.0))
+        ambiente = {**base, "XANO_LIMITE_REQUISICOES": "0", "XANO_JANELA_SEGUNDOS": "60"}
+        with patch.dict(os.environ, ambiente, clear=True):
+            config = XanoConfig.from_env()
+            self.assertEqual((config.limite_requisicoes, config.janela_segundos), (0, 60.0))
+        for chave, invalido in (
+            ("XANO_LIMITE_REQUISICOES", "101"),
+            ("XANO_LIMITE_REQUISICOES", "x"),
+            ("XANO_JANELA_SEGUNDOS", "0"),
+            ("XANO_JANELA_SEGUNDOS", "500"),
+        ):
+            with self.subTest(chave=chave, valor=invalido):
+                with patch.dict(os.environ, {**base, chave: invalido}, clear=True):
+                    with self.assertRaises(XanoConfigurationError):
+                        XanoConfig.from_env()

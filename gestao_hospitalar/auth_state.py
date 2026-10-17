@@ -90,6 +90,7 @@ from gestao_hospitalar.validacao_pacientes import (
 from gestao_hospitalar.xano_client import (
     POR_PAGINA_PADRAO,
     XanoAuthenticationError,
+    XanoSessionExpiredError,
     XanoClient,
     XanoConfig,
     XanoError,
@@ -359,6 +360,9 @@ class AuthState(rx.State):
 
     acao_em_andamento: str = ""
     termo_busca: str = ""
+    # Última leitura falhou (mostra "Tentar novamente"); sessão recusada pelo Xano.
+    leitura_falhou: bool = False
+    _sessao_expirada: bool = False
 
     painel_pacientes: int = -1
     painel_medicos: int = -1
@@ -712,6 +716,7 @@ class AuthState(rx.State):
     def iniciar_acao(self, chave: str, dominio: str = ""):
         """Marca a ação em andamento e limpa mensagens antigas do domínio."""
         self.acao_em_andamento = chave[:60]
+        self.leitura_falhou = False
         campos = CAMPOS_FEEDBACK.get(dominio)
         if campos is None:
             return
@@ -721,7 +726,54 @@ class AuthState(rx.State):
 
     @rx.event
     def encerrar_acao(self):
+        """Fim comum das cadeias (leitura, cadastro, login): confere a sessão."""
         self.acao_em_andamento = ""
+        if self._sessao_expirada:
+            return AuthState.verificar_sessao
+
+    def _registrar_falha(self, error: Exception, leitura: bool = True):
+        """Anota o tipo da falha: sessão expirada leva ao login; leitura oferece repetir."""
+        if isinstance(error, XanoSessionExpiredError):
+            self._sessao_expirada = True
+        elif leitura:
+            self.leitura_falhou = True
+
+    @rx.event
+    def verificar_sessao(self):
+        """Se o Xano recusou o token da sessão, volta ao login com aviso."""
+        if not self._sessao_expirada:
+            return
+        self._sessao_expirada = False
+        logger.warning("session_expired user_id=%s", self.usuario_id)
+        return [
+            rx.toast.warning(
+                "Sua sessão expirou. Entre novamente.",
+                close_button=True,
+                duration=6000,
+            ),
+            AuthState.do_logout,
+        ]
+
+    @rx.event
+    def tentar_novamente(self):
+        """Repete a leitura da tela atual (botão do aviso de falha de leitura)."""
+        carregador = {
+            "/dashboard": AuthState.atualizar_resumo,
+            "/pacientes": AuthState.carregar_pacientes,
+            "/medicos": AuthState.carregar_medicos,
+            "/convenios": AuthState.carregar_convenios,
+            "/atendimentos": AuthState.carregar_atendimentos,
+            "/internacoes": AuthState.carregar_internacoes,
+            "/historico": AuthState.carregar_historico,
+            "/relatorios": AuthState.carregar_relatorios,
+        }.get(self.router.url.path.rstrip("/") or "/")
+        if carregador is None:
+            return
+        return [
+            AuthState.iniciar_acao("carregando"),
+            carregador,
+            AuthState.encerrar_acao,
+        ]
 
     @rx.event
     def notificar_resultado(self, dominio: str):
@@ -835,7 +887,8 @@ class AuthState(rx.State):
         for chave, futuro in futuros.items():
             try:
                 resultados[chave] = futuro.result()
-            except XanoError:
+            except XanoError as error:
+                self._registrar_falha(error)
                 falhas.append(chave)
                 logger.warning(
                     "summary_result status=xano_error resource=%s role=%s",
@@ -902,10 +955,12 @@ class AuthState(rx.State):
             self.painel_graficos_carregando = True
 
         registros = None
+        falha = None
         try:
             cliente = XanoClient(XanoConfig.from_env())
             registros = await asyncio.to_thread(cliente.listar_todos_atendimentos, token)
-        except XanoError:
+        except XanoError as error:
+            falha = error
             logger.warning("summary_result status=xano_error resource=atendimentos_graficos")
         except Exception:
             # Tarefa sem usuário esperando: o erro vai ao log e ao aviso do painel,
@@ -917,9 +972,13 @@ class AuthState(rx.State):
                 return
             try:
                 if self.is_authenticated and token == self._auth_token:
+                    if falha is not None:
+                        self._registrar_falha(falha)
                     self._aplicar_graficos(registros)
             finally:
                 self.painel_graficos_carregando = False
+        if isinstance(falha, XanoSessionExpiredError):
+            return AuthState.verificar_sessao
 
     def _aplicar_graficos(self, registros: list[dict[str, Any]] | None):
         """Guarda só agregados e os 8 eventos mais recentes (não a lista completa)."""
@@ -1088,7 +1147,8 @@ class AuthState(rx.State):
                 self._auth_token,
                 int(paciente_id),
             )
-        except XanoError:
+        except XanoError as error:
+            self._registrar_falha(error)
             self.erro_historico = "Não foi possível carregar o histórico."
             return
         self.historico_eventos = normalizar_historico(payload)
@@ -1102,7 +1162,8 @@ class AuthState(rx.State):
             registros = XanoClient(XanoConfig.from_env()).listar_pacientes_historico(
                 self._auth_token
             )
-        except XanoError:
+        except XanoError as error:
+            self._registrar_falha(error)
             self.erro_historico = "Não foi possível carregar os pacientes."
             return
         self.pacientes_historico = [
@@ -1251,6 +1312,8 @@ class AuthState(rx.State):
         self.painel_ev_internacoes = []
         self.painel_amostra_atendimentos = -1
         self.painel_periodo = "30"
+        self.leitura_falhou = False
+        self._sessao_expirada = False
         self._invalidar_graficos()
         return rx.redirect("/")
 
@@ -1280,7 +1343,8 @@ class AuthState(rx.State):
                 self.pagina_pacientes,
                 POR_PAGINA_PADRAO,
             )
-        except XanoError:
+        except XanoError as error:
+            self._registrar_falha(error)
             logger.warning("patient_list_result status=xano_error role=%s", self.papel)
             self.erro_paciente = "Não foi possível carregar os pacientes."
             return
@@ -1316,7 +1380,8 @@ class AuthState(rx.State):
             registros = XanoClient(XanoConfig.from_env()).listar_todos_pacientes(
                 self._auth_token
             )
-        except XanoError:
+        except XanoError as error:
+            self._registrar_falha(error)
             self.erro_atendimento = "Não foi possível carregar os pacientes."
             return
         self.pacientes_referencia = [
@@ -1350,7 +1415,8 @@ class AuthState(rx.State):
                 self.pagina_medicos,
                 POR_PAGINA_PADRAO,
             )
-        except XanoError:
+        except XanoError as error:
+            self._registrar_falha(error)
             logger.warning("doctor_list_result status=xano_error role=%s", self.papel)
             self.erro_medico = "Não foi possível carregar os médicos."
             return
@@ -1382,7 +1448,8 @@ class AuthState(rx.State):
             registros = XanoClient(XanoConfig.from_env()).listar_todos_medicos(
                 self._auth_token
             )
-        except XanoError:
+        except XanoError as error:
+            self._registrar_falha(error)
             self.erro_atendimento = "Não foi possível carregar os médicos."
             return
         self.medicos_referencia = [
@@ -1489,7 +1556,8 @@ class AuthState(rx.State):
             medicos_existentes = XanoClient(XanoConfig.from_env()).listar_todos_medicos(
                 self._auth_token
             )
-        except XanoError:
+        except XanoError as error:
+            self._registrar_falha(error, leitura=False)
             self.erro_medico = "Não foi possível validar o CRM."
             return
         if any(
@@ -1589,7 +1657,8 @@ class AuthState(rx.State):
             registros = XanoClient(XanoConfig.from_env()).listar_convenios(
                 self._auth_token
             )
-        except XanoError:
+        except XanoError as error:
+            self._registrar_falha(error)
             self.erro_convenio = "Não foi possível carregar os convênios."
             return
         self.convenios = [
@@ -1664,7 +1733,8 @@ class AuthState(rx.State):
             existentes = XanoClient(XanoConfig.from_env()).listar_convenios(
                 self._auth_token
             )
-        except XanoError:
+        except XanoError as error:
+            self._registrar_falha(error, leitura=False)
             self.erro_convenio = "Não foi possível validar o convênio."
             return
         if any(
@@ -1752,7 +1822,8 @@ class AuthState(rx.State):
             registros = XanoClient(XanoConfig.from_env()).listar_atendimentos(
                 self._auth_token
             )
-        except XanoError:
+        except XanoError as error:
+            self._registrar_falha(error)
             self.erro_atendimento = "Não foi possível carregar os atendimentos."
             return
         self.atendimentos = [
@@ -1805,7 +1876,8 @@ class AuthState(rx.State):
                 self._auth_token,
                 int(atendimento_id),
             )
-        except XanoError:
+        except XanoError as error:
+            self._registrar_falha(error)
             self.erro_diagnostico = "Não foi possível carregar os diagnósticos."
             return
         self.diagnosticos = [
@@ -1849,7 +1921,8 @@ class AuthState(rx.State):
         except XanoValidationError:
             self.erro_diagnostico = "O atendimento informado é inválido."
             return
-        except XanoError:
+        except XanoError as error:
+            self._registrar_falha(error, leitura=False)
             self.erro_diagnostico = "Não foi possível cadastrar o diagnóstico."
             return
 
@@ -1875,7 +1948,8 @@ class AuthState(rx.State):
             registros = XanoClient(XanoConfig.from_env()).listar_leitos(
                 self._auth_token
             )
-        except XanoError:
+        except XanoError as error:
+            self._registrar_falha(error)
             self.erro_leito = "Não foi possível carregar os leitos."
             return
         self.leitos = [
@@ -1903,7 +1977,8 @@ class AuthState(rx.State):
         except XanoValidationError as error:
             self.erro_leito = str(error)
             return
-        except XanoError:
+        except XanoError as error:
+            self._registrar_falha(error, leitura=False)
             self.erro_leito = "Não foi possível cadastrar o leito."
             return
         self.sucesso_leito = f"Leito cadastrado (#{leito_id})."
@@ -1940,7 +2015,8 @@ class AuthState(rx.State):
             registros = XanoClient(XanoConfig.from_env()).listar_atendimentos_internaveis(
                 self._auth_token
             )
-        except XanoError:
+        except XanoError as error:
+            self._registrar_falha(error)
             self.erro_internacao = "Não foi possível carregar os atendimentos elegíveis."
             return
         self.atendimentos_internaveis = [
@@ -1964,7 +2040,8 @@ class AuthState(rx.State):
             registros = XanoClient(XanoConfig.from_env()).listar_internacoes(
                 self._auth_token
             )
-        except XanoError:
+        except XanoError as error:
+            self._registrar_falha(error)
             self.erro_internacao = "Não foi possível carregar as internações."
             return
         numeros_por_id = {
@@ -2014,7 +2091,8 @@ class AuthState(rx.State):
         except XanoValidationError as error:
             self.erro_internacao = str(error)
             return
-        except XanoError:
+        except XanoError as error:
+            self._registrar_falha(error, leitura=False)
             self.erro_internacao = "Não foi possível cadastrar a internação."
             return
         self.sucesso_internacao = f"Internação cadastrada (#{internacao_id})."
@@ -2068,7 +2146,8 @@ class AuthState(rx.State):
         except XanoValidationError:
             self.erro_internacao = "A internação não pode receber alta."
             return
-        except XanoError:
+        except XanoError as error:
+            self._registrar_falha(error, leitura=False)
             self.erro_internacao = "Não foi possível registrar a alta."
             return
         self.sucesso_internacao = "Alta registrada e leito liberado."
@@ -2094,7 +2173,8 @@ class AuthState(rx.State):
                 self._auth_token,
                 int(internacao_id),
             )
-        except XanoError:
+        except XanoError as error:
+            self._registrar_falha(error)
             self.erro_transferencia = "Não foi possível carregar as transferências."
             return
         self.transferencias = [
@@ -2152,7 +2232,8 @@ class AuthState(rx.State):
         except XanoValidationError as error:
             self.erro_transferencia = str(error)
             return
-        except XanoError:
+        except XanoError as error:
+            self._registrar_falha(error, leitura=False)
             self.erro_transferencia = "Não foi possível cadastrar a transferência."
             return
         self.sucesso_transferencia = (
@@ -2222,7 +2303,8 @@ class AuthState(rx.State):
         except XanoValidationError:
             self.erro_atendimento = "As referências do atendimento são inválidas."
             return
-        except XanoError:
+        except XanoError as error:
+            self._registrar_falha(error, leitura=False)
             self.erro_atendimento = "Não foi possível cadastrar o atendimento."
             return
 
@@ -2319,7 +2401,8 @@ class AuthState(rx.State):
         except XanoValidationError:
             self.erro_paciente = "O CPF já está cadastrado."
             return
-        except XanoError:
+        except XanoError as error:
+            self._registrar_falha(error, leitura=False)
             self.erro_paciente = "Não foi possível cadastrar o paciente."
             return
 

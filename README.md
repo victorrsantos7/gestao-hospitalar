@@ -278,5 +278,5 @@ Acesse `http://localhost:3000`. É necessário configurar a variável
 - [docs/domain-model.md](docs/domain-model.md) — conceitos e relacionamentos do domínio.
 - [docs/matriz-permissoes-xano.md](docs/matriz-permissoes-xano.md) — permissões por perfil em cada endpoint.
 - [docs/publicacao-reflex-cloud.md](docs/publicacao-reflex-cloud.md) — como publicar o aplicativo.
-- [docs/apresentacao/index.html](docs/apresentacao/index.html) — apresentação do sistema (abrir no navegador).
+- [docs/apresentacao-sistema-gestao-hospitalar.pdf](docs/apresentacao-sistema-gestao-hospitalar.pdf) — apresentação do sistema em PDF (16 slides).
 - [AGENTS.md](AGENTS.md) e [openspec/](openspec) — regras de desenvolvimento e histórico de mudanças.

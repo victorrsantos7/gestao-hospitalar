@@ -13,7 +13,8 @@ convenções). Para o manual de uso do aplicativo, veja o [README](../README.md)
 - [openspec/specs/](../openspec/specs) — comportamento consolidado do sistema.
 - [openspec/changes/](../openspec/changes) — mudanças em andamento e histórico.
 - [publicacao-reflex-cloud.md](publicacao-reflex-cloud.md) — como publicar numa URL pública no Reflex Cloud para testadores externos (dados fictícios).
-- [apresentacao/index.html](apresentacao/index.html) — apresentação do sistema (abrir no navegador; setas navegam, F tela cheia, P imprime em PDF). Capturas com dados fictícios.
+- [apresentacao-sistema-gestao-hospitalar.pdf](apresentacao-sistema-gestao-hospitalar.pdf) — apresentação do sistema em PDF (16 slides, capturas com dados fictícios).
+- [apresentacao/index.html](apresentacao/index.html) — fonte da apresentação (abrir no navegador; setas navegam, F tela cheia, P imprime em PDF). Para regerar o PDF, imprima a partir do Chrome (P) ou use `chrome --headless=new --no-pdf-header-footer --print-to-pdf=... index.html` e remova a última página em branco.
 
 ## Ambiente de desenvolvimento
 
